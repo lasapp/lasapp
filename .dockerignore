@@ -1,0 +1,8 @@
+env/
+src/jl/Manifest.toml
+.pipe/
+tmp/
+.vscode/
+**/__pycache__
+**/.DS_Store
+**/beanmachine.log
