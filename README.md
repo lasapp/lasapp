@@ -1,4 +1,5 @@
 <img src="lasapp_logo.png">
+
 # Language-Agnostic Static Analysis for Probabilistic Programs
 
 Replication package for ICSE 2024 submission with the same name.
