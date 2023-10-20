@@ -14,6 +14,7 @@ if __name__ == '__main__':
     parser.add_argument("program_name", help="motivating | linear_model | slicing | pedestrian | constraint | guide")
     parser.add_argument("ppl", help="turing | gen | pyro | pymc | beanmachine")
     parser.add_argument("-a", help="graph | hmc | constraint | guide", default="paper") 
+    parser.add_argument("-v", help="if set source code of file will be printed", action='store_true')
     args = parser.parse_args()
 
     ext = {"turing": "jl", "gen": "jl", "pyro": "py", "pymc": "py", "beanmachine": "py"}[args.ppl]
@@ -21,10 +22,11 @@ if __name__ == '__main__':
 
     program = lasapp.ProbabilisticProgram(filename)
 
-    # file_content = get_file_content(filename)
-    # variables = program.get_random_variables()
-    # highlights = [(rv.node.first_byte, rv.node.last_byte, "106m" if rv.is_observed else "102m") for rv in variables]
-    # print_source_highlighted(file_content, highlights)
+    if args.v:
+        file_content = get_file_content(filename)
+        variables = program.get_random_variables()
+        highlights = [(rv.node.first_byte, rv.node.last_byte, "106m" if rv.is_observed else "102m") for rv in variables]
+        print_source_highlighted(file_content, highlights)
     # print()
     # print("RVs:")
     # for rv in variables:

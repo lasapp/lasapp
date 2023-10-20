@@ -1,9 +1,20 @@
+<<<<<<< HEAD
 # LASAPP: Language-Agnostic Static Analysis for Probabilistic Programs
 
 Replication package for ICSE 2024 submission with the same name.
 
 The full implementation of the four language-agnosic analyses can be found in `src/static/analysis`.
 
+=======
+<img src="lasapp_logo.png">
+
+# Language-Agnostic Static Analysis for Probabilistic Programs
+
+Replication package for OOSPLA 2024 submission with the same name.
+
+The full implementation of the four language-agnosic analyses can be found in `src/static/analysis`.
+
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 The LASAPP front-end API is implemented in `src/static/lasapp`.
 
 The Julia language server can be found in `src/jl` and the Python language server can be found in `src/py`.
@@ -69,7 +80,11 @@ python3 src/static/test/all.py
 ```
 Run main file:
 ```
+<<<<<<< HEAD
 python3 icse24/main.py -h
+=======
+python3 oopsla24/main.py -h
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 usage: main.py [-h] [-a A] program_name ppl
 
 positional arguments:
@@ -79,6 +94,10 @@ positional arguments:
 options:
   -h, --help    show this help message and exit
   -a A          graph | hmc | constraint | guide
+<<<<<<< HEAD
+=======
+  -v            if set source code of file will be printed
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 ```
 
 Omitting the `-a` argument will analyse the program as in the reference paper.
@@ -89,7 +108,11 @@ But you can use all presented analyses:
 - `-a=constraint` parameter constraint verification
 - `-a=guide` model-guide validation
 
+<<<<<<< HEAD
 All example programs that are analysed can be found at `icse24/examples`.
+=======
+All example programs that are analysed can be found at `oopsla24/examples`.
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 
 The `guide` analysis is only available for the `guide` program in `gen` and `pyro`.
 
@@ -105,15 +128,25 @@ Start the language servers and verify that they running.
 
 #### Motivating example (Figure 3): Catching discrete variables.
 ```
+<<<<<<< HEAD
 python3 icse24/main.py motivating turing
 python3 icse24/main.py motivating beanmachine
 python3 icse24/main.py motivating pyro
+=======
+python3 oopsla24/main.py motivating turing
+python3 oopsla24/main.py motivating beanmachine
+python3 oopsla24/main.py motivating pyro
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 ```
 Also available for `gen`, and `pymc`.
 
 #### Model graph extraction (Figure 6):
 ```
+<<<<<<< HEAD
 python3 icse24/main.py slicing turing
+=======
+python3 oopsla24/main.py slicing turing
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 ```
 Check out the plot by running on the host machine:
 ```
@@ -123,21 +156,34 @@ Also available for `gen`, `pyro`, `pymc`, and `beanmachine`.
 
 #### HMC Assumption Checking for Pedestrian Model (Figure 7):
 ```
+<<<<<<< HEAD
 python3 icse24/main.py pedestrian pyro
+=======
+python3 oopsla24/main.py pedestrian pyro
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 ```
 Also available for `gen`, `turing`, and `beanmachine`.
 
 #### Parameter Constraint Verification (Figure 8):
 ```
+<<<<<<< HEAD
 python3 icse24/main.py linear_model pymc
 python3 icse24/main.py constraint gen
+=======
+python3 oopsla24/main.py linear_model pymc
+python3 oopsla24/main.py constraint gen
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 ```
 Also available for `turing`, `gen`, `pyro`, `pymc`, and `beanmachine`.
 
 #### Model-Guide Validation (Figure 9):
 
 ```
+<<<<<<< HEAD
 python3 icse24/main.py guide pyro
+=======
+python3 oopsla24/main.py guide pyro
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 ```
 Also available for `gen`.
 
@@ -147,7 +193,11 @@ In this prototype we provide initial implementations of the language servers.
 
 Therefore, we rely on a few assumptions and the analysis may crash for some programs.
 
+<<<<<<< HEAD
 Take a look at `icse24/examples`  and `examples/` for some reference programs.
+=======
+Take a look at `oopsla24/examples`  and `examples/` for some reference programs.
+>>>>>>> f90b11a371c1daeb8e616b07d9db4f159d0143fb
 
 Generally, the analyses are most robust for programs written in a "Static Single Assigment" like fashion.
 
