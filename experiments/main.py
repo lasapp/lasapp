@@ -18,7 +18,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ext = {"turing": "jl", "gen": "jl", "pyro": "py", "pymc": "py", "beanmachine": "py"}[args.ppl]
-    filename = f"icse24/examples/{args.program_name}_{args.ppl}.{ext}"
+    filename = f"experiments/examples/{args.program_name}_{args.ppl}.{ext}"
 
     program = lasapp.ProbabilisticProgram(filename)
 
