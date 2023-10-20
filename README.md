@@ -2,7 +2,7 @@
 
 # Language-Agnostic Static Analysis for Probabilistic Programs
 
-Replication package for ICSE 2024 submission with the same name.
+Replication package for OOSPLA 2024 submission with the same name.
 
 The full implementation of the four language-agnosic analyses can be found in `src/static/analysis`.
 
@@ -71,7 +71,7 @@ python3 src/static/test/all.py
 ```
 Run main file:
 ```
-python3 icse24/main.py -h
+python3 oopsla24/main.py -h
 usage: main.py [-h] [-a A] program_name ppl
 
 positional arguments:
@@ -92,7 +92,7 @@ But you can use all presented analyses:
 - `-a=constraint` parameter constraint verification
 - `-a=guide` model-guide validation
 
-All example programs that are analysed can be found at `icse24/examples`.
+All example programs that are analysed can be found at `oopsla24/examples`.
 
 The `guide` analysis is only available for the `guide` program in `gen` and `pyro`.
 
@@ -108,15 +108,15 @@ Start the language servers and verify that they running.
 
 #### Motivating example (Figure 3): Catching discrete variables.
 ```
-python3 icse24/main.py motivating turing
-python3 icse24/main.py motivating beanmachine
-python3 icse24/main.py motivating pyro
+python3 oopsla24/main.py motivating turing
+python3 oopsla24/main.py motivating beanmachine
+python3 oopsla24/main.py motivating pyro
 ```
 Also available for `gen`, and `pymc`.
 
 #### Model graph extraction (Figure 6):
 ```
-python3 icse24/main.py slicing turing
+python3 oopsla24/main.py slicing turing
 ```
 Check out the plot by running on the host machine:
 ```
@@ -126,21 +126,21 @@ Also available for `gen`, `pyro`, `pymc`, and `beanmachine`.
 
 #### HMC Assumption Checking for Pedestrian Model (Figure 7):
 ```
-python3 icse24/main.py pedestrian pyro
+python3 oopsla24/main.py pedestrian pyro
 ```
 Also available for `gen`, `turing`, and `beanmachine`.
 
 #### Parameter Constraint Verification (Figure 8):
 ```
-python3 icse24/main.py linear_model pymc
-python3 icse24/main.py constraint gen
+python3 oopsla24/main.py linear_model pymc
+python3 oopsla24/main.py constraint gen
 ```
 Also available for `turing`, `gen`, `pyro`, `pymc`, and `beanmachine`.
 
 #### Model-Guide Validation (Figure 9):
 
 ```
-python3 icse24/main.py guide pyro
+python3 oopsla24/main.py guide pyro
 ```
 Also available for `gen`.
 
@@ -150,7 +150,7 @@ In this prototype we provide initial implementations of the language servers.
 
 Therefore, we rely on a few assumptions and the analysis may crash for some programs.
 
-Take a look at `icse24/examples`  and `examples/` for some reference programs.
+Take a look at `oopsla24/examples`  and `examples/` for some reference programs.
 
 Generally, the analyses are most robust for programs written in a "Static Single Assigment" like fashion.
 
