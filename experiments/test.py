@@ -8,7 +8,7 @@ from analysis.hmc_assumptions_checker import *
 from analysis.guide_validation import *
 from analysis.utils import *
 
-class ICSE24(unittest.TestCase):
+class ExperimentsTest(unittest.TestCase):
     def _test_motivating(self, filename, ppl, variables):
         program = lasapp.ProbabilisticProgram(filename)
         warnings = check_hmc_assumptions(program)
@@ -28,19 +28,19 @@ class ICSE24(unittest.TestCase):
             )
         
     def test_motivating_beanmachine(self):
-        self._test_motivating("icse24/examples/motivating_beanmachine.py", "beanmachine", {"state": "state()", "x": "model(n)"})
+        self._test_motivating("experiments/examples/motivating_beanmachine.py", "beanmachine", {"state": "state()", "x": "model(n)"})
 
     def test_motivating_gen(self):
-        self._test_motivating("icse24/examples/motivating_gen.jl", "gen", {"state": "state", "x": ":x => i"})
+        self._test_motivating("experiments/examples/motivating_gen.jl", "gen", {"state": "state", "x": ":x => i"})
 
     def test_motivating_pymc(self):
-        self._test_motivating("icse24/examples/motivating_pymc.py", "pymc", {"state": "'state'", "x": "'X'"})
+        self._test_motivating("experiments/examples/motivating_pymc.py", "pymc", {"state": "'state'", "x": "'X'"})
 
     def test_motivating_pyro(self):
-        self._test_motivating("icse24/examples/motivating_pyro.py", "pyro", {"state": "'state'", "x": "'X'"})
+        self._test_motivating("experiments/examples/motivating_pyro.py", "pyro", {"state": "'state'", "x": "'X'"})
 
     def test_motivating_turing(self):
-        self._test_motivating("icse24/examples/motivating_turing.jl", "turing", {"state": "state", "x": "X[i]"})
+        self._test_motivating("experiments/examples/motivating_turing.jl", "turing", {"state": "state", "x": "X[i]"})
 
 
     def _test_constraint(self, filename, ppl, variables):
@@ -58,19 +58,19 @@ class ICSE24(unittest.TestCase):
         self.assertIn(variables["g"], rvs)
         
     def test_constraint_beanmachine(self):
-        self._test_constraint("icse24/examples/constraint_beanmachine.py", "beanmachine", {"g": "g()"})
+        self._test_constraint("experiments/examples/constraint_beanmachine.py", "beanmachine", {"g": "g()"})
 
     def test_constraint_gen(self):
-        self._test_constraint("icse24/examples/constraint_gen.jl", "gen", {"g": "g"})
+        self._test_constraint("experiments/examples/constraint_gen.jl", "gen", {"g": "g"})
 
     def test_constraint_pymc(self):
-        self._test_constraint("icse24/examples/constraint_pymc.py", "pymc", {"g": "'g'"})
+        self._test_constraint("experiments/examples/constraint_pymc.py", "pymc", {"g": "'g'"})
 
     def test_constraint_pyro(self):
-        self._test_constraint("icse24/examples/constraint_pyro.py", "pyro", {"g": "'g'"})
+        self._test_constraint("experiments/examples/constraint_pyro.py", "pyro", {"g": "'g'"})
 
     def test_constraint_turing(self):
-        self._test_constraint("icse24/examples/constraint_turing.jl", "turing", {"g": "g"})
+        self._test_constraint("experiments/examples/constraint_turing.jl", "turing", {"g": "g"})
 
 
     def _test_guide(self, filename, ppl, variables):
@@ -92,10 +92,10 @@ class ICSE24(unittest.TestCase):
                 )
 
     def test_guide_gen(self):
-        self._test_guide("icse24/examples/guide_gen.jl", "gen", {"B": "B", "D": "D", "E": "E"})
+        self._test_guide("experiments/examples/guide_gen.jl", "gen", {"B": "B", "D": "D", "E": "E"})
 
     def test_guide_pyro(self):
-        self._test_guide("icse24/examples/guide_pyro.py", "pyro", {"B": "'B'", "D": "'D'", "E": "'E'"})
+        self._test_guide("experiments/examples/guide_pyro.py", "pyro", {"B": "'B'", "D": "'D'", "E": "'E'"})
 
 
 
@@ -115,19 +115,19 @@ class ICSE24(unittest.TestCase):
 
 
     def test_linear_beanmachine(self):
-        self._test_linear("icse24/examples/linear_model_beanmachine.py", "beanmachine", {"sigma": "linear_regression_2(x)"})
+        self._test_linear("experiments/examples/linear_model_beanmachine.py", "beanmachine", {"sigma": "linear_regression_2(x)"})
 
     def test_linear_gen(self):
-        self._test_linear("icse24/examples/linear_model_gen.jl", "gen", {"sigma": ":y=>i"})
+        self._test_linear("experiments/examples/linear_model_gen.jl", "gen", {"sigma": ":y=>i"})
 
     def test_linear_pymc(self):
-        self._test_linear("icse24/examples/linear_model_pymc.py", "pymc", {"sigma": "'y'"})
+        self._test_linear("experiments/examples/linear_model_pymc.py", "pymc", {"sigma": "'y'"})
 
     def test_linear_pyro(self):
-        self._test_linear("icse24/examples/linear_model_pyro.py", "pyro", {"sigma": "'y'"})
+        self._test_linear("experiments/examples/linear_model_pyro.py", "pyro", {"sigma": "'y'"})
 
     def test_linear_turing(self):
-        self._test_linear("icse24/examples/linear_model_turing.jl", "turing", {"sigma": "y[i]"})
+        self._test_linear("experiments/examples/linear_model_turing.jl", "turing", {"sigma": "y[i]"})
 
 
     def _test_pedestrian(self, filename, ppl, variables):
@@ -154,7 +154,7 @@ class ICSE24(unittest.TestCase):
         )
 
     def test_pedestrian_beanmachine(self):
-        program = lasapp.ProbabilisticProgram("icse24/examples/pedestrian_beanmachine.py")
+        program = lasapp.ProbabilisticProgram("experiments/examples/pedestrian_beanmachine.py")
         warnings = check_hmc_assumptions(program)
         program.close()
 
@@ -167,13 +167,13 @@ class ICSE24(unittest.TestCase):
 
 
     def test_pedestrian_gen(self):
-        self._test_pedestrian("icse24/examples/pedestrian_gen.jl", "gen", {"start": "start", "step": ":step=>t", "obs": "end_distance"})
+        self._test_pedestrian("experiments/examples/pedestrian_gen.jl", "gen", {"start": "start", "step": ":step=>t", "obs": "end_distance"})
 
     def test_pedestrian_pyro(self):
-        self._test_pedestrian("icse24/examples/pedestrian_pyro.py", "pyro", {"start": "'start'", "step": "f'step_{t}'", "obs": "'obs'"})
+        self._test_pedestrian("experiments/examples/pedestrian_pyro.py", "pyro", {"start": "'start'", "step": "f'step_{t}'", "obs": "'obs'"})
 
     def test_pedestrian_turing(self):
-        self._test_pedestrian("icse24/examples/pedestrian_turing.jl", "turing", {"start": "start", "step": "step[t]", "obs": "end_distance"})
+        self._test_pedestrian("experiments/examples/pedestrian_turing.jl", "turing", {"start": "start", "step": "step[t]", "obs": "end_distance"})
 
 
 
@@ -198,19 +198,19 @@ class ICSE24(unittest.TestCase):
 
 
     def test_slicing_beanmachine(self):
-        self._test_slicing("icse24/examples/slicing_beanmachine.py", "beanmachine", {"i": "i()", "s": "s()", "d": "d()", "g": "g()", "l": "l()"})
+        self._test_slicing("experiments/examples/slicing_beanmachine.py", "beanmachine", {"i": "i()", "s": "s()", "d": "d()", "g": "g()", "l": "l()"})
 
     def test_slicing_gen(self):
-        self._test_slicing("icse24/examples/slicing_gen.jl", "gen", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
+        self._test_slicing("experiments/examples/slicing_gen.jl", "gen", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
 
     def test_slicing_pymc(self):
-        self._test_slicing("icse24/examples/slicing_pymc.py", "pymc", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
+        self._test_slicing("experiments/examples/slicing_pymc.py", "pymc", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
 
     def test_slicing_pyro(self):
-        self._test_slicing("icse24/examples/slicing_pyro.py", "pyro", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
+        self._test_slicing("experiments/examples/slicing_pyro.py", "pyro", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
 
     def test_slicing_turing(self):
-        self._test_slicing("icse24/examples/slicing_turing.jl", "turing", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
+        self._test_slicing("experiments/examples/slicing_turing.jl", "turing", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
 
 if __name__ == "__main__":
     unittest.main()
