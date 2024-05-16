@@ -11,10 +11,10 @@ class SyntaxNode:
    
 @dataclass_json 
 @dataclass
-class ControlNode:
+class ControlDependency:
     node: SyntaxNode
     kind: str
-    control_subnode: SyntaxNode
+    control_node: SyntaxNode
     body: list[SyntaxNode]
 
 @dataclass_json 
@@ -48,6 +48,7 @@ class Distribution:
 class RandomVariable:
     node: SyntaxNode
     name: str
+    address_node: SyntaxNode
     distribution: Distribution
     is_observed: bool
 

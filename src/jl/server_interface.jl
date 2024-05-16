@@ -19,10 +19,10 @@ module ServerInterface
         source_text::String
     end
 
-    JSONRPC.@dict_readable struct ControlNode <: JSONRPC.Outbound
+    JSONRPC.@dict_readable struct ControlDependency <: JSONRPC.Outbound
         node::SyntaxNode
         kind::String
-        control_subnode::SyntaxNode
+        control_node::SyntaxNode
         body::Vector{SyntaxNode}
     end
 
@@ -51,13 +51,19 @@ module ServerInterface
     JSONRPC.@dict_readable struct RandomVariable <: JSONRPC.Outbound
         node::SyntaxNode
         name::String
+        address_node::SyntaxNode
         distribution::Distribution
         is_observed::Bool
+    end
+
+    JSONRPC.@dict_readable struct TreeID <: JSONRPC.Outbound
+        tree_id::String
     end
 
     JSONRPC.@dict_readable struct File <: JSONRPC.Outbound
         file_name::String
         ppl::String
+        n_unroll_loops::Int # 0 if no unrolling
     end
 
     JSONRPC.@dict_readable struct Interval <: JSONRPC.Outbound
@@ -73,11 +79,11 @@ module ServerInterface
 
     const build_ast_rt = JSONRPC.RequestType("build_ast", File, String)
 
-    const get_model_rt = JSONRPC.RequestType("get_model", File, Model)
+    const get_model_rt = JSONRPC.RequestType("get_model", TreeID, Model)
     
-    const get_guide_rt = JSONRPC.RequestType("get_guide", File, Model)
+    const get_guide_rt = JSONRPC.RequestType("get_guide", TreeID, Model)
 
-    const get_random_variables_rt = JSONRPC.RequestType("get_random_variables", File, Vector{RandomVariable})
+    const get_random_variables_rt = JSONRPC.RequestType("get_random_variables", TreeID, Vector{RandomVariable})
 
     JSONRPC.@dict_readable struct tree_node_params <: MethodParams
         tree_id::String
@@ -86,12 +92,12 @@ module ServerInterface
 
     const get_data_dependencies_rt = JSONRPC.RequestType("get_data_dependencies", tree_node_params, Vector{SyntaxNode})
 
-    const get_control_parents_rt = JSONRPC.RequestType("get_control_parents", tree_node_params, Vector{ControlNode})
+    const get_control_dependencies_rt = JSONRPC.RequestType("get_control_dependencies", tree_node_params, Vector{ControlDependency})
 
     JSONRPC.@dict_readable struct estimate_value_range_p <: MethodParams
         tree_id::String
         expr::SyntaxNode
-        assumptions::Vector{Tuple{RandomVariable,Interval}}
+        mask::Vector{Tuple{SyntaxNode,Interval}}
     end
     const estimate_value_range_rt = JSONRPC.RequestType("estimate_value_range", estimate_value_range_p, Interval)
 
@@ -101,7 +107,7 @@ module ServerInterface
         tree_id::String
         root::SyntaxNode
         nodes::Vector{SyntaxNode}
-        assumptions::Vector{Tuple{SyntaxNode,SymbolicExpression}}
+        mask::Vector{Tuple{SyntaxNode,SymbolicExpression}}
     end
     const get_path_conditions_rt = JSONRPC.RequestType("get_path_conditions", get_path_conditions_p, Vector{SymbolicExpression})
 

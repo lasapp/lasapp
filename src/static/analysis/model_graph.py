@@ -5,8 +5,8 @@ import lasapp
 from .utils import is_descendant
 
 class Plate():
-    def __init__(self, control_node):
-        self.control_node = control_node
+    def __init__(self, control_dep):
+        self.control_dep = control_dep
         self.members = set() # node_id or Plate
 
 class ModelGraph():
@@ -16,8 +16,15 @@ class ModelGraph():
         self.edges = edges                      # List: Pair(RandomVariable, RandomVariable)
 
 def get_model_graph(program: lasapp.ProbabilisticProgram):
-
     model = program.get_model()
+    return get_graph(program, model)
+
+def get_guide_graph(program: lasapp.ProbabilisticProgram):
+    guide = program.get_guide()
+    return get_graph(program, guide)
+
+from functools import cmp_to_key
+def get_graph(program: lasapp.ProbabilisticProgram, model):
     call_graph = program.get_call_graph(model.node)
     call_graph_nodes = {n.caller for n in call_graph}
 
@@ -29,9 +36,9 @@ def get_model_graph(program: lasapp.ProbabilisticProgram):
     plates = {"global": Plate(None)}
 
     for _, rv in random_variables.items():
-        all_deps = {}
+        marked = set()
         # we recursively get all data and control dependencies of random variable node
-        queue = deque([rv.node])
+        queue = deque([rv.address_node, rv.distribution.node])
 
         while len(queue) > 0:
             # get next node, FIFO
@@ -42,25 +49,30 @@ def get_model_graph(program: lasapp.ProbabilisticProgram):
 
             for dep in data_deps:
                 # check if we have already processed node
-                if dep.node_id not in all_deps:
+                if dep.node_id not in marked:
                     if dep.node_id in random_variables:
                         # if node is random variable, we do not continue recursion and add edge to graph
-                        edges.append((random_variables[dep.node_id], rv))
+                        dep_rv = random_variables[dep.node_id]
+                        edges.append((dep_rv, rv))
+
+                        queue.append(dep_rv.address_node)
+                        marked.add(dep_rv.address_node.node_id)
                     else:
-                        # if node is not a random variable, we add node to queue to process later
                         queue.append(dep)
-                    # mark node as processed
-                    all_deps[dep.node_id] = dep
+                    marked.add(dep.node_id)
             
             # get all control dependencies, this are loop / if nodes
-            for dep in program.get_control_parents(node):
+            for dep in program.get_control_dependencies(node):
                 # get data dependencies of condition / loop variable (control subnode) of control node
-                queue.append(dep.control_subnode)
-
+                if dep.control_node.node_id not in marked:
+                    queue.append(dep.control_node)
+                    marked.add(dep.control_node.node_id)
+                    
 
     # compute plates from control_parents
     for _, rv in random_variables.items():
-        control_deps = program.get_control_parents(rv.node)
+        control_deps = program.get_control_dependencies(rv.node)
+        control_deps = sorted(control_deps, key=cmp_to_key(lambda c1, c2: is_descendant(c1.node, c2.node)))
         current_plate = plates["global"]
         for dep in control_deps:
             if dep.kind == "for":
@@ -102,13 +114,16 @@ def merge_nodes_by_name(model_graph):
         model_graph.edges = [edge for i, edge in enumerate(model_graph.edges) if not any(edge == edge2 for edge2 in model_graph.edges[i+1:])]
 
 
-def plot_model_graph(model_graph, view=True):
+# label_method in ("name", "source")
+# "name" uses the random variable name provided by the backend
+# "source" uses the source text of the address node
+def plot_model_graph(model_graph, filename="model.gv", view=True, label_method="name"):
 
     def get_graph(plate, graph=None):
         if graph is None:
             graph = graphviz.Digraph(
-                name='cluster_'+plate.control_node.node.node_id,
-                # graph_attr={'label': plate.control_node["controlsub_node"]["source_text"]}
+                name='cluster_'+plate.control_dep.node.node_id,
+                # graph_attr={'label': plate.control_dep["controlsub_node"]["source_text"]}
                 )
         
         for m in plate.members:
@@ -117,7 +132,12 @@ def plot_model_graph(model_graph, view=True):
                 graph.subgraph(subgraph)
             else:
                 rv = model_graph.random_variables[m]
-                label = f"{rv.name}\n~ {rv.distribution.name}"
+                if label_method == "name":
+                    label = f"{rv.name}\n~ {rv.distribution.name}"
+                elif label_method == "source":
+                    label = f"{rv.address_node.source_text}\n~ {rv.distribution.name}"
+                else:
+                    raise Exception(f"Unknown label method {label_method}")
                 # for p in rv.distribution.params:
                 #     label += f"\n{p.name} = {p.node.source_text}"
                 if rv.is_observed:
@@ -132,5 +152,5 @@ def plot_model_graph(model_graph, view=True):
     for x,y in model_graph.edges:
         dot.edge(x.node.node_id, y.node.node_id)
 
-    dot.render(directory='tmp', view=view)
-    print("Saved graph to tmp/model.gv.pdf")
+    dot.render(filename=filename, directory='tmp', view=view)
+    print(f"Saved graph to tmp/{filename}.pdf")

@@ -23,7 +23,10 @@ end
 
 traces, log_norm_weights, lml_est = importance_sampling(model, (), observations, 5000)
 
-states = [t[:state] - 1 for t in traces]
+states = []
+for t in traces
+    push!(states, t[:state] - 1)
+end
 weights = exp.(log_norm_weights)
 
 state_mean = states'weights

@@ -7,10 +7,10 @@ def get_random_control_dependencies(
         program: lasapp.ProbabilisticProgram,
         random_variables: list[lasapp.RandomVariable],
         node: lasapp.SyntaxNode,
-        is_control: bool = False # flags if node is already considered part of control (is control_subnode)
+        is_control: bool = False # flags if node is already considered part of control (is control_node)
     ):
     rv_control_deps = []
-    all_deps = {}
+    marked = set()
     queue = deque([(node, is_control)])
 
     while len(queue) > 0:
@@ -19,16 +19,21 @@ def get_random_control_dependencies(
         data_deps = program.get_data_dependencies(node)
 
         for dep in data_deps:
-            if dep.node_id not in all_deps:
-                all_deps[dep.node_id] = dep
+            if (dep.node_id, is_control) not in marked:
+                marked.add((dep.node_id, is_control))
                 if dep.node_id in random_variables:
+                    dep_rv = random_variables[dep.node_id]
                     if is_control:
-                        rv_control_deps.append(dep)
+                        rv_control_deps.append(dep_rv)
+                    queue.append((dep_rv.address_node, is_control))
+                    marked.add((dep_rv.address_node.node_id, is_control))
                 else:
                     queue.append((dep, is_control))
         
-        for dep in program.get_control_parents(node):
-            queue.append((dep.control_subnode, True))
+        for dep in program.get_control_dependencies(node):
+            if (dep.control_node.node_id, is_control) not in marked:
+                queue.append((dep.control_node, True))
+                marked.add((dep.control_node.node_id, True))
 
     return rv_control_deps
 
@@ -44,7 +49,7 @@ class ContinuousDistributionViolation(HMCAssumptionWarning):
         rv_text = self.random_variable.node.source_text#highlight_in_node(rv.node, rv.distribution.node.first_byte, rv.distribution.node.last_byte, "101m")
         s = f"ContinuousDistributionViolation: Distribution type violation in \"{rv_text}\":\n"
         dist_name = self.distribution.name
-        s += (f"    {dist_name} distribution is discrete, which is not supported by HMC/NUTS.\n")
+        s += (f"    {dist_name} distribution is discrete, which is not supported by HMC/NUTS.")
         return s
 
 class RandomControlDependentWarning(HMCAssumptionWarning):
@@ -55,8 +60,8 @@ class RandomControlDependentWarning(HMCAssumptionWarning):
     def __str__(self) -> str:
         s = f"RandomControlDependentWarning: Random variable \"{self.random_variable.node.source_text}\" is control dependent on following variables:\n"
         for rv_dep in self.random_control_deps:
-            s += f"        {rv_dep.source_text}\n"
-        s += "    Random control dependencies may cause discontinuities in the posterior distribution, which are challenging for HMC/NUTS.\n"
+            s += f"        {rv_dep.node.source_text}\n"
+        s += "    Random control dependencies may cause discontinuities in the posterior distribution, which are challenging for HMC/NUTS."
         return s
 
 class MultipleDefinitionsWarning(HMCAssumptionWarning):
@@ -65,7 +70,7 @@ class MultipleDefinitionsWarning(HMCAssumptionWarning):
         self.definitions = definitions
     
     def __str__(self) -> str:
-        return f"MultipleDefinitionsWarning: Multiple definitions ({len(self.definitions)}) for random variable with name {self.random_variable_name}.\n"
+        return f"MultipleDefinitionsWarning: Multiple definitions ({len(self.definitions)}) for random variable with name {self.random_variable_name}."
 
 class MissingInBranchWarning(HMCAssumptionWarning):
     def __init__(self, random_variable, if_stmt, branch):
@@ -74,8 +79,8 @@ class MissingInBranchWarning(HMCAssumptionWarning):
         self.branch = branch
 
     def __str__(self) -> str:
-        s = f"MissingInBranchWarning: Random variable with name {self.random_variable.name} not be defined in program branch.\n"
-        s += f"    If condition {self.if_stmt.control_subnode.source_text} may be stochastic and random variable is not defined in {self.branch} branch."
+        s = f"MissingInBranchWarning: Random variable with name {self.random_variable.name} is not defined in program branch.\n"
+        s += f"    If condition {self.if_stmt.control_node.source_text} may be stochastic and random variable is not defined in {self.branch} branch."
         return s
     
 class StochasticForLoopRangeWarning(HMCAssumptionWarning):
@@ -84,7 +89,7 @@ class StochasticForLoopRangeWarning(HMCAssumptionWarning):
         self.for_stmt = for_stmt
 
     def __str__(self) -> str:
-        s = f"StochasticForLoopRangeWarning: Random variable \"{self.random_variable.node.source_text}\" appears in for loop with potentially stochastic range \"{self.for_stmt.control_subnode.source_text}\".\n"
+        s = f"StochasticForLoopRangeWarning: Random variable \"{self.random_variable.node.source_text}\" appears in for loop with potentially stochastic range \"{self.for_stmt.control_node.source_text}\".\n"
         s += f"    This may lead to an unbounded number of random variables which is not supported by HMC/NUTS."
         return s
 
@@ -118,7 +123,7 @@ def check_hmc_assumptions(program: lasapp.ProbabilisticProgram) -> list[HMCAssum
     # check if all variables are continuous
     for _, rv in random_variables.items():
         properties = lasapp.infer_distribution_properties(rv)
-        if properties is not None and properties.is_discrete():
+        if properties is not None and properties.is_discrete() and not rv.is_observed:
             warning = ContinuousDistributionViolation(rv, properties)
             warnings.append(warning)
 
@@ -133,6 +138,9 @@ def check_hmc_assumptions(program: lasapp.ProbabilisticProgram) -> list[HMCAssum
             warnings.append(warning)
 
 
+
+    # More detailed warnings: (this is not part of the paper)
+    
     # Check if trace is static
 
     random_variables_per_name = {}
@@ -147,11 +155,11 @@ def check_hmc_assumptions(program: lasapp.ProbabilisticProgram) -> list[HMCAssum
             warnings.append(warning)
 
         for rv in rvs:
-            control_parents = program.get_control_parents(rv.node)
+            control_parents = program.get_control_dependencies(rv.node)
             for control_dep in control_parents:
                 if control_dep.kind == "if":
                     # check for stochastic branching
-                    if len(get_random_control_dependencies(program, random_variables, control_dep.control_subnode, True)) > 0:
+                    if len(get_random_control_dependencies(program, random_variables, control_dep.control_node, True)) > 0:
                         # check if variable is defined in other both branches
                         if len(control_dep.body) < 2:
                             warning = MissingInBranchWarning(rv, control_dep, "else")
@@ -168,7 +176,7 @@ def check_hmc_assumptions(program: lasapp.ProbabilisticProgram) -> list[HMCAssum
 
                 if control_dep.kind == "for":
                     # check for stochastic loop range
-                    if len(get_random_control_dependencies(program, random_variables, control_dep.control_subnode, True)) > 0:
+                    if len(get_random_control_dependencies(program, random_variables, control_dep.control_node, True)) > 0:
                         warning = StochasticForLoopRangeWarning(rv, control_dep)
                         warnings.append(warning)
                 

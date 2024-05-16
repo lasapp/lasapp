@@ -255,6 +255,7 @@ RUN set -eux; \
 # --LASAPP--------------------------------------------------------------------------------------------------
 RUN apt-get update; \
 	apt-get install -y tmux; \
+	apt-get install -y vim; \
 	apt-get install -y dos2unix;
 
 # installing graphviz

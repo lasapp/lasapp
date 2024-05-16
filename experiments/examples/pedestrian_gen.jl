@@ -21,7 +21,11 @@ observations = choicemap(:end_distance=>1.1)
 
 traces, log_norm_weights, lml_est = importance_sampling(model, (), observations, 5000)
 
-starts = [t[:start] for t in traces]
+starts = []
+for i in eachindex(traces)
+    tr = traces[i]
+    push!(starts, tr[:start])
+end
 weights = exp.(log_norm_weights)
 
 starts_mean = starts'weights

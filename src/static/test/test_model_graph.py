@@ -137,9 +137,10 @@ def B():
 @bm.random_variable
 def C():
     if A():
-        return dist.Normal(B(), 1.)
+        d = dist.Normal(B(), 1.)
     else:
-        return dist.Normal(-B(), 1.)
+        d = dist.Normal(-B(), 1.)
+    return d
 
 # model = C
 """

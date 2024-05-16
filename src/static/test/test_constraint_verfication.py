@@ -7,7 +7,7 @@ from lasapp import ProbabilisticProgram
 import os
 
 from base_test_case import BaseTestCase
-from analysis.constraint_verfication import *
+from analysis.constraint_verification import *
 
 class TestConstraintVerification(BaseTestCase):
     def __init__(self, methodName: str = "runTest") -> None:

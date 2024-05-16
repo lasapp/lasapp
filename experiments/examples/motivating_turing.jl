@@ -20,7 +20,8 @@ res = sample(model(X), IS(), 5000)
 
 weights = exp.(res[:lp]) / sum(exp, res[:lp])
 
-state_mean = ((res[:state].-1)'weights)[1]
+state_mean = ((res[:state].-1)'weights)
+state_mean = state_mean[1]
 println("state_mean=$state_mean")
 
 

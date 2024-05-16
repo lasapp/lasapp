@@ -34,7 +34,7 @@
     """
 
     syntax_tree = get_syntax_tree_for_str(source_code)
-    replace_sample_syntax!(Gen(), syntax_tree)
+    preprocess_syntaxtree!(Gen(), syntax_tree)
 
     func = syntax_tree.root_node[1,2]
     A = func[2, 1]
@@ -89,7 +89,7 @@
     """
 
     syntax_tree = get_syntax_tree_for_str(source_code)
-    replace_sample_syntax!(Gen(), syntax_tree)
+    preprocess_syntaxtree!(Gen(), syntax_tree)
 
     func = syntax_tree.root_node[1,2]
     A = func[2,2,2,1]

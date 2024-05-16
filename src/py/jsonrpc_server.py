@@ -49,8 +49,10 @@ def handle_client(reader, writer, dispatcher):
         response = JSONRPCResponseManager.handle(message_str, dispatcher)
         # print('response:', response.json)
         write_transport_layer(writer, response.json)
-    
-_SESSION = dict()
+
+from typing import Dict, Tuple, Any
+from ast_utils.scoped_tree import ScopedTree
+_SESSION: Dict[str, Tuple[Any,ScopedTree]] = dict()
 
 def run_server(socket_name, dispatcher):
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

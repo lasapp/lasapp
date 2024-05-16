@@ -32,11 +32,11 @@
 
     source_code = "function test(a, b::Int, c=1, d::Int=1; e, f::Int, g=1, h::Int=1) end"
     node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    @test get_parameters_of_function(node) == [:a, :b, :c, :d, :e, :f, :g, :h]
+    @test get_parameter_names_of_function(node) == [:a, :b, :c, :d, :e, :f, :g, :h]
 
     source_code = "function test(a, b::Int, c=1, d::Int=1; e, f::Int, g=1, h::Int=1)::Int end"
     node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    @test get_parameters_of_function(node) == [:a, :b, :c, :d, :e, :f, :g, :h]
+    @test get_parameter_names_of_function(node) == [:a, :b, :c, :d, :e, :f, :g, :h]
 
 
     source_code = "x = 1"

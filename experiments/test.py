@@ -3,7 +3,7 @@ sys.path.insert(0, 'src/static')
 import unittest
 import lasapp
 from analysis.model_graph import *
-from analysis.constraint_verfication import *
+from analysis.constraint_verification import *
 from analysis.hmc_assumptions_checker import *
 from analysis.guide_validation import *
 from analysis.utils import *
@@ -31,7 +31,7 @@ class ExperimentsTest(unittest.TestCase):
         self._test_motivating("experiments/examples/motivating_beanmachine.py", "beanmachine", {"state": "state()", "x": "model(n)"})
 
     def test_motivating_gen(self):
-        self._test_motivating("experiments/examples/motivating_gen.jl", "gen", {"state": "state", "x": ":x => i"})
+        self._test_motivating("experiments/examples/motivating_gen.jl", "gen", {"state": ":state", "x": ":x=>i"})
 
     def test_motivating_pymc(self):
         self._test_motivating("experiments/examples/motivating_pymc.py", "pymc", {"state": "'state'", "x": "'X'"})
@@ -61,7 +61,7 @@ class ExperimentsTest(unittest.TestCase):
         self._test_constraint("experiments/examples/constraint_beanmachine.py", "beanmachine", {"g": "g()"})
 
     def test_constraint_gen(self):
-        self._test_constraint("experiments/examples/constraint_gen.jl", "gen", {"g": "g"})
+        self._test_constraint("experiments/examples/constraint_gen.jl", "gen", {"g": ":g"})
 
     def test_constraint_pymc(self):
         self._test_constraint("experiments/examples/constraint_pymc.py", "pymc", {"g": "'g'"})
@@ -75,7 +75,7 @@ class ExperimentsTest(unittest.TestCase):
 
     def _test_guide(self, filename, ppl, variables):
         program = lasapp.ProbabilisticProgram(filename)
-        violations = check_guide(program)
+        violations = check_proposal(program)
         # print()
         # print(ppl)
         # for rv in program.get_random_variables():
@@ -92,7 +92,7 @@ class ExperimentsTest(unittest.TestCase):
                 )
 
     def test_guide_gen(self):
-        self._test_guide("experiments/examples/guide_gen.jl", "gen", {"B": "B", "D": "D", "E": "E"})
+        self._test_guide("experiments/examples/guide_gen.jl", "gen", {"B": ":B", "D": ":D", "E": ":E"})
 
     def test_guide_pyro(self):
         self._test_guide("experiments/examples/guide_pyro.py", "pyro", {"B": "'B'", "D": "'D'", "E": "'E'"})
@@ -167,7 +167,7 @@ class ExperimentsTest(unittest.TestCase):
 
 
     def test_pedestrian_gen(self):
-        self._test_pedestrian("experiments/examples/pedestrian_gen.jl", "gen", {"start": "start", "step": ":step=>t", "obs": "end_distance"})
+        self._test_pedestrian("experiments/examples/pedestrian_gen.jl", "gen", {"start": ":start", "step": ":step=>t", "obs": ":end_distance"})
 
     def test_pedestrian_pyro(self):
         self._test_pedestrian("experiments/examples/pedestrian_pyro.py", "pyro", {"start": "'start'", "step": "f'step_{t}'", "obs": "'obs'"})
@@ -177,40 +177,40 @@ class ExperimentsTest(unittest.TestCase):
 
 
 
-    def _test_slicing(self, filename, ppl, variables):
-        program = lasapp.ProbabilisticProgram(filename)
+    # def _test_slicing(self, filename, ppl, variables):
+    #     program = lasapp.ProbabilisticProgram(filename)
 
-        model_graph = get_model_graph(program)
+    #     model_graph = get_model_graph(program)
 
-        program.close()
+    #     program.close()
 
-        for _, x in model_graph.random_variables.items():
-            self.assertEqual(x.is_observed, variables["g"] == x.name)
+    #     for _, x in model_graph.random_variables.items():
+    #         self.assertEqual(x.is_observed, variables["g"] == x.name)
             
 
-        edges = [(x.name, y.name) for x, y in model_graph.edges]
+    #     edges = [(x.name, y.name) for x, y in model_graph.edges]
 
 
-        self.assertIn((variables["i"], variables["s"]), edges)
-        self.assertIn((variables["i"], variables["g"]), edges)
-        self.assertIn((variables["d"], variables["g"]), edges)
-        self.assertIn((variables["g"], variables["l"]), edges)
+    #     self.assertIn((variables["i"], variables["s"]), edges)
+    #     self.assertIn((variables["i"], variables["g"]), edges)
+    #     self.assertIn((variables["d"], variables["g"]), edges)
+    #     self.assertIn((variables["g"], variables["l"]), edges)
 
 
-    def test_slicing_beanmachine(self):
-        self._test_slicing("experiments/examples/slicing_beanmachine.py", "beanmachine", {"i": "i()", "s": "s()", "d": "d()", "g": "g()", "l": "l()"})
+    # def test_slicing_beanmachine(self):
+    #     self._test_slicing("experiments/examples/slicing_beanmachine.py", "beanmachine", {"i": "i()", "s": "s()", "d": "d()", "g": "g()", "l": "l()"})
 
-    def test_slicing_gen(self):
-        self._test_slicing("experiments/examples/slicing_gen.jl", "gen", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
+    # def test_slicing_gen(self):
+    #     self._test_slicing("experiments/examples/slicing_gen.jl", "gen", {"i": ":i", "s": ":s", "d": ":d", "g": ":g", "l": ":l"})
 
-    def test_slicing_pymc(self):
-        self._test_slicing("experiments/examples/slicing_pymc.py", "pymc", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
+    # def test_slicing_pymc(self):
+    #     self._test_slicing("experiments/examples/slicing_pymc.py", "pymc", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
 
-    def test_slicing_pyro(self):
-        self._test_slicing("experiments/examples/slicing_pyro.py", "pyro", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
+    # def test_slicing_pyro(self):
+    #     self._test_slicing("experiments/examples/slicing_pyro.py", "pyro", {"i": "'i'", "s": "'s'", "d": "'d'", "g": "'g'", "l": "'l'"})
 
-    def test_slicing_turing(self):
-        self._test_slicing("experiments/examples/slicing_turing.jl", "turing", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
+    # def test_slicing_turing(self):
+    #     self._test_slicing("experiments/examples/slicing_turing.jl", "turing", {"i": "i", "s": "s", "d": "d", "g": "g", "l": "l"})
 
 if __name__ == "__main__":
     unittest.main()

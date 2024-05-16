@@ -11,10 +11,10 @@ class Operation(SymbolicExpression):
         self.op = op
         self.args = args
     def __repr__(self) -> str:
-        if len(self.args) == 1:
-            return f"{self.op}{self.args[0]}"
-        if len(self.args) == 2:
-            return f"({self.args[0]} {self.op} {self.args[1]})"
+        # if len(self.args) == 1:
+        #     return f"{self.op}{self.args[0]}"
+        # if len(self.args) == 2:
+        #     return f"({self.args[0]} {self.op} {self.args[1]})"
         s = ", ".join([str(arg) for arg in self.args])
         return f"{self.op}({s})"
     def __eq__(self, other: object) -> bool:
@@ -49,6 +49,8 @@ def Symbol_from_str(s: str) -> Symbol:
     
 class Constant(SymbolicExpression):
     def __init__(self, value) -> None:
+        if value == None:
+            value = 0 # we do not model None
         self.value = value
     def __repr__(self) -> str:
         return f"{self.value}"
@@ -78,6 +80,7 @@ _SYM_AST_NODE_TO_OP = {
     ast.Not: "!",
     ast.USub: "-",
     ast.Eq: "==",
+    ast.Is: "==",
     ast.NotEq: "!=",
     ast.Gt: ">",
     ast.GtE: ">=",
@@ -180,11 +183,15 @@ class SymbolicEvaluator(ast.NodeVisitor):
             # return mask symbol
             return self.node_to_symbol[node]
         
-        if isinstance(node, (ast.FunctionDef, ast.If, Block, ast.Assign, ast.Constant, ast.Name, ast.UnaryOp, ast.BinOp, ast.BoolOp, ast.Compare, ast.Call)):
+        if isinstance(node, (ast.FunctionDef, ast.If, ast.With, Block, ast.Assign, ast.Constant, ast.Name,
+                             ast.UnaryOp, ast.BinOp, ast.BoolOp, ast.Compare, ast.Call, ast.List)):
             return super().visit(node)
         if isinstance(node, ast.Expr):
             return self.visit(node.value)
         print(f"Encountered unsupported node {node}")
+
+    def visit_With(self, node: ast.With):
+        return self.visit(node.body)
 
     def visit_Block(self, node: Block):
         # iterate over each statement in block, return last result
@@ -196,7 +203,7 @@ class SymbolicEvaluator(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign):
         assert len(node.targets) == 1
         target = node.targets[0]
-        assert isinstance(target, ast.Name)
+        assert isinstance(target, ast.Name), f"Symbolic: Assign target is not name {ast.dump(target)}"
         name = target.id
         assert name not in self.node_to_symbol # only one assignment per name
         # symbolically evaluate right hand side
@@ -220,20 +227,20 @@ class SymbolicEvaluator(ast.NodeVisitor):
 
     def visit_UnaryOp(self, node: ast.UnaryOp):
         operand = self.visit(node.operand)
-        assert type(node.op) in _SYM_AST_NODE_TO_OP
+        assert type(node.op) in _SYM_AST_NODE_TO_OP, f"{type(node.op)} not in _SYM_AST_NODE_TO_OP"
         return Operation(_SYM_AST_NODE_TO_OP[type(node.op)], operand)
 
     def visit_BinOp(self, node: ast.BinOp):
         left = self.visit(node.left)
         right = self.visit(node.right)
         
-        assert type(node.op) in _SYM_AST_NODE_TO_OP
+        assert type(node.op) in _SYM_AST_NODE_TO_OP, f"{type(node.op)} not in _SYM_AST_NODE_TO_OP"
         return Operation(_SYM_AST_NODE_TO_OP[type(node.op)], left, right)
     
     def visit_BoolOp(self, node: ast.BinOp):
         values = [self.visit(v) for v in node.values]
         
-        assert type(node.op) in _SYM_AST_NODE_TO_OP
+        assert type(node.op) in _SYM_AST_NODE_TO_OP, f"{type(node.op)} not in _SYM_AST_NODE_TO_OP"
         return Operation(_SYM_AST_NODE_TO_OP[type(node.op)], *values)
     
     def visit_Compare(self, node: ast.Compare):
@@ -241,13 +248,17 @@ class SymbolicEvaluator(ast.NodeVisitor):
         left = self.visit(node.left)
         right = self.visit(node.comparators[0])
         op = node.ops[0]
-        assert type(op) in _SYM_AST_NODE_TO_OP
+        assert type(op) in _SYM_AST_NODE_TO_OP, f"{type(op)} not in _SYM_AST_NODE_TO_OP"
         return Operation(_SYM_AST_NODE_TO_OP[type(op)], left, right)
     
     def visit_Call(self, node: ast.Call):
         name = get_call_name(node)
         values = [self.visit(arg) for arg in node.args]
         return Operation(name, *values)
+    
+    def visit_List(self, node: ast.List):
+        values = [self.visit(arg) for arg in node.elts]
+        return Operation("List", *values)
 
 # We will collect multiple path conditions that can be combined by following rule
 # (A and B and ...) or (!A and B and ...) => B and ...

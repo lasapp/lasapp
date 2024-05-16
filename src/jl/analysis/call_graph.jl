@@ -8,7 +8,7 @@ end
 
 function visit(call_finder::CallFinder, node::SyntaxNode)
     is_call = false
-    if kind(node) == K"call"
+    if kind(node) == K"call" || kind(node) == K"dotcall"
         # check that call does not come from function signature
         # function A(...) ... ~ (function (call A ...) ...)
         if !isnothing(node.parent) && kind(node.parent) == K"function"
@@ -50,7 +50,7 @@ function get_called_functions(scoped_tree::ScopedTree, node::SyntaxNode)::Vector
             func = func_def.node
             func_id = get_function_identifier(func)
             # same name and scope
-            if call_id.val == func_id.val && scoped_tree.node_to_scope[call_id] == scoped_tree.node_to_scope[func_id]
+            if call_id.val == func_id.val && scoped_tree.identifier_to_scope[call_id] == scoped_tree.identifier_to_scope[func_id]
                 push!(called_functions, func)
                 break
             end

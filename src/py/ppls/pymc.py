@@ -1,12 +1,40 @@
 from .ppl import PPL, VariableDefinition
 import ast
-from ast_utils.utils import get_call_name, get_name
-from typing import Union
+from ast_utils.utils import get_call_name
+from ast_utils.preprocess import SyntaxTree
+from .pyro_pymc_preproc import PyroPyMCPreprocessor
 
+class PyMCPreprocessor(ast.NodeTransformer):
+        def __init__(self, syntax_tree: SyntaxTree) -> None:
+            self.syntax_tree = syntax_tree
+
+        def visit_Call(self, node: ast.Call):
+            match node:
+                case ast.Call(
+                    func=ast.Call(func=ast.Attribute(value=ast.Name(id=id), attr=attr), args=[dist, lower, upper])):
+                    if id == 'pm' and attr == 'Bound':
+                        dist.attr = "Truncated" + dist.attr
+                        node.func = dist
+                        lower_kw = ast.keyword(arg="lower", value=lower)
+                        lower_kw.parent = node
+                        node.keywords.append(lower_kw)
+                        self.syntax_tree.add_node(lower_kw)
+                        upper_kw = ast.keyword(arg="upper", value=upper)
+                        upper_kw.parent = node
+                        self.syntax_tree.add_node(upper_kw)
+                        node.keywords.append(upper_kw)
+
+                        return node
+                        
+            return super().generic_visit(node)
+        
+        
 class PyMC(PPL):
     def __init__(self) -> None:
         super().__init__()
         self.distributions = {
+            'Deterministic',
+
             'AsymmetricLaplace', 'Beta', 'Cauchy', 'ChiSquared', 'ExGaussian',
             'Exponential', 'Flat', 'Gamma', 'Gumbel', 'HalfCauchy',
             'HalfFlat', 'HalfNormal', 'HalfStudentT', 'Interpolated', 'InverseGamma',
@@ -24,35 +52,32 @@ class PyMC(PPL):
             'LKJCorr', 'MatrixNormal', 'Multinomial', 'MvNormal', 'MvStudentT',
             'OrderedMultinomial', 'StickBreakingWeights', 'Wishart', 'WishartBartlett', 'ZeroSumNormal',
 
-            'Mixture', 'NormalMixture'
+            'Mixture', 'NormalMixture',
+
+            'Lognormal',
+
+            'DensityDist',
 
             # there are other 'submodels' like AR
         }
 
     def is_random_variable_definition(self, node: ast.AST) -> bool:
-        if isinstance(node, ast.Assign):
-            return self.is_random_variable_definition(node.value)
-        
-        if not isinstance(node, ast.Call):
-            return False
-        
-        if isinstance(node.func, ast.Name) and node.func.id in self.distributions:
-            return True
-        elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
-            return node.func.value.id in ('pm', 'pymc') and node.func.attr in self.distributions # TODO: check how pymc is imported
-        else:
-            return False
+        match node:
+            case ast.Assign(value=ast.Call(func=ast.Attribute(value=ast.Name(id=_id), attr=_attr))) if _id in ('pm', 'pymc') and _attr in self.distributions:
+                return True
+            case _:
+                return False
         
     def get_random_variable_name(self, variable:VariableDefinition) -> str:
-        call_node = variable.node.value if isinstance(variable.node, ast.Assign) else variable.node
+        assert isinstance(variable.node, ast.Assign)
+        call_node = variable.node.value
         return ast.unparse(call_node.args[0])
 
-    def get_program_variable_name(self, variable:VariableDefinition) -> Union[str,None]:
-        if isinstance(variable.node, ast.Assign):
-            return get_name(variable.node.targets[0]).id
-        else:
-            return None
-
+    def get_address_node(self, variable: VariableDefinition) -> ast.AST:
+        assert isinstance(variable.node, ast.Assign)
+        call_node = variable.node.value
+        return call_node.args[0]
+    
     def is_model(self, node: ast.AST) -> bool:
         if not isinstance(node, ast.With):
             return False
@@ -72,16 +97,18 @@ class PyMC(PPL):
         return node.items[0].optional_vars.id
     
     def is_observed(self, variable: VariableDefinition) -> bool:
-        call_node = variable.node.value if isinstance(variable.node, ast.Assign) else variable.node
+        assert isinstance(variable.node, ast.Assign)
+        call_node = variable.node.value
         for kw in call_node.keywords:
             if kw.arg == 'observed':
                 return True
         return False
     
     def get_distribution_node(self, variable: VariableDefinition) -> ast.AST:
-        call_node = variable.node.value if isinstance(variable.node, ast.Assign) else variable.node
+        assert isinstance(variable.node, ast.Assign)
+        call_node = variable.node.value
         return call_node
-    
+        
     def get_distribution(self, distribution_node: ast.AST) -> tuple[str, dict[str, ast.AST]]:
         name =  get_call_name(distribution_node)
 
@@ -89,65 +116,135 @@ class PyMC(PPL):
 
         args = distribution_node.args
         kwargs = {kw.arg: kw.value for kw in distribution_node.keywords}
-
-        if len(args) > 1:
-            # we assume that all parameters are given by keyword
-            # first and only positional argument is variable name
-            return "Unknown", {"distribution": distribution_node}
         
         # we do not check all parameters, but only the conventional
         # e.g. we do not check mu and sigma for Beta, but only alpha and beta
-        # always use scale (sigma) instead of precision
         # dont use logits
 
         try:
             if name == 'Beta':
-                dist_params = {'alpha': kwargs['alpha'], 'beta': kwargs['beta']}
+                param_order = ['alpha', 'beta']
+                param_names = ['alpha', 'beta']
             elif name == 'Cauchy':
-                dist_params = {'location': kwargs['alpha'], 'scale': kwargs['beta']}
+                param_order = ['alpha', 'beta']
+                param_names = ['location', 'scale']
             elif name == 'ChiSquared':
-                dist_params = {'df': kwargs['nu']}
+                param_order = ['nu']
+                param_names = ['df']
             elif name == 'Exponential':
-                dist_params = {'rate': kwargs['lam']}
+                param_order = ['lam']
+                param_names = ['rate']
             elif name == 'Gamma':
-                dist_params = {'shape': kwargs['alpha'], 'rate': kwargs['beta']}
+                param_order = ['alpha', 'beta']
+                param_names = ['shape', 'rate']
             elif name == 'HalfCauchy':
-                dist_params = {'scale': kwargs['beta']}
+                param_order = ['beta']
+                param_names = ['scale']
+            elif name == 'HalfFlat':
+                param_order = []
+                param_names = []
             elif name == 'HalfNormal':
-                dist_params = {'scale': kwargs['sigma']}
+                param_order = [['sd','sigma','tau']]
+                param_names = [['scale','scale','precision']]
             elif name == 'InverseGamma':
-                dist_params = {'shape': kwargs['alpha'], 'scale': kwargs['beta']}
-            elif name in ('LogNormal', 'Normal'):
-                dist_params = {'location': kwargs['mu'], 'scale': kwargs['sigma']}
+                param_order = ['alpha', 'beta']
+                param_names = ['shape', 'scale']
+            elif name in ('LogNormal', 'Lognormal', 'Normal'):
+                param_order = ['mu', ['sigma', 'sd', 'tau']]
+                param_names = ['location', ['scale', 'scale', 'precision']]
+                if name == 'Lognormal':
+                    dist_name = 'LogNormal'
             elif name == 'StudentT':
-                dist_params = {'df': kwargs['nu'], 'location': kwargs['mu'], 'scale': kwargs['sigma']}
+                param_order = ['nu', 'mu', ['sigma', 'sd']]
+                param_names = ['df'', location', ['scale', 'scale']]
+            elif name == 'Triangular':
+                param_order = ['lower', 'c', 'upper']
+                param_names = ['a', 'c', 'b']
             elif name in ('Uniform', 'DiscreteUniform'):
-                dist_params = {'a': kwargs['lower'], 'b': kwargs['upper']}
+                param_order = ['lower', 'upper']
+                param_names = ['a', 'b']
             elif name in ('Bernoulli', 'Categorical', 'Geometric'):
-                dist_params = {'p': kwargs['p']}
+                param_order = ['p']
+                param_names = ['p']
             elif name == 'Binomial':
-                dist_params = {'n': kwargs['n'], 'p': kwargs['p']}
+                param_order = ['n', 'p']
+                param_names = ['n', 'p']
             elif name == 'DiracDelta':
                 dist_name = 'Dirac'
-                dist_params = {'location': kwargs['c']}
+                param_order = ['c']
+                param_names = ['location']
+            elif name == 'Deterministic':
+                dist_name = 'Deterministic'
+                param_order = ['var']
+                param_names = ['location']
             elif name == 'Poisson':
-                dist_params = {'rate': kwargs['mu']}
+                param_order = ['mu']
+                param_names = ['rate']
             elif name == 'Dirichlet':
-                dist_params = {'alpha': kwargs['a']}
+                param_order = ['a']
+                param_names = ['alpha']
             elif name == 'Multinomial':
-                dist_params = {'n': kwargs['n'], 'p': kwargs['p']}
+                param_order = ['n', 'p']
+                param_names = ['n', 'p']
             elif name == 'MvNormal':
                 dist_name = 'MultivariateNormal'
-                dist_params = {'location': kwargs['mu'], 'covariance': kwargs['cov']}
+                param_order = ['mu', ['cov', 'tau']]
+                param_names = ['location', ['covariance', 'precision']]
             elif name == 'Wishart':
-                dist_params = {'df': kwargs['mu'], 'scale': kwargs['V']}
-            elif name == 'LKJCorr':
+                param_order = ['mu', 'V']
+                param_names = ['df', 'scale']
+            elif name in ('LKJCholeskyCov', 'LKJCorr'):
                 dist_name = 'LKJCholesky'
-                dist_params = {'size': kwargs['n'], 'shape': kwargs['eta']}
+                param_order = ['n', 'eta']
+                param_names = ['size', 'shape']
+            elif name == 'TruncatedNormal':
+                param_order = ['mu', ['sigma', 'sd', 'tau'], 'lower', 'upper']
+                param_names = ['location', ['scale', 'scale', 'precision'], 'lower', 'upper']
             else:
                 dist_name = f'Unknown-{name}'
-                dist_params = kwargs
+                param_order = []
+                param_names = []
+                
 
+            dist_params = {}
+            for i in range(len(args)-1):
+                arg = args[i+1]
+                name = param_names[i]
+                if isinstance(name, list):
+                    name = name[0] # default to first parameter name
+                dist_params[name] = arg
+            for (param, arg) in kwargs.items():
+                name = None
+                for p, n in zip(param_order, param_names):
+                    if param == p:
+                        name = n
+                        break
+                    if isinstance(p, list):
+                        for pp, nn in zip(p, n):
+                            if param == pp:
+                                name = nn
+                                break
+                        if name is not None:
+                            break
+                if name is not None:
+                    dist_params[name] = arg
+
+            # print(dist_name, dist_params, args)
             return dist_name, dist_params
+        
         except KeyError:
             raise Exception(f"Default parameters not supported (in {dist_name})")
+        
+
+    def is_rogue_rv_node(self, node: ast.Call) -> bool:
+        match node:
+            case ast.Call(func=ast.Attribute(value=ast.Name(id=_id), attr=_attr)) if _id in ('pm', 'pymc') and _attr in self.distributions:
+                return True
+        return False
+
+    def preprocess_syntax_tree(self, syntax_tree: SyntaxTree) -> SyntaxTree:
+        PyMCPreprocessor(syntax_tree).visit(syntax_tree.root_node)
+        PyroPyMCPreprocessor(syntax_tree, lambda node: self.is_rogue_rv_node(node)).visit(syntax_tree.root_node)
+        # print(ast.dump(syntax_tree.root_node, indent=1))
+        # print(ast.unparse(syntax_tree.root_node))
+        return syntax_tree

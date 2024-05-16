@@ -10,7 +10,15 @@ def get_utf8_substr(s, start, end):
     return s[start:end].decode('utf-8')
 
 def print_source_highlighted(file_content, highlights):
+    highlights = list(set(highlights))
     highlights.sort(key=lambda x: x[0])
+    print(highlights)
+    unique_highlights = []
+    for highlight in highlights:
+        # if highlight is not contained in other highlight
+        if not any(other[0] <= highlight[0] and highlight[1] <= other[1] for other in unique_highlights):
+            unique_highlights.append(highlight)
+    highlights = unique_highlights
     for i in range(len(highlights)-1):
         assert highlights[i][1] < highlights[i+1][0]
 

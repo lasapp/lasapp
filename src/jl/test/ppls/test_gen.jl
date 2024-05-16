@@ -21,27 +21,54 @@
     observations[:e => i] = 1
     observations["f"] = 1
     """
-    node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    func_body = node[2,2]
-    @test is_model(Gen(), node)
+    st = get_syntax_tree_for_str(source_code)
+    preprocess_syntaxtree!(Gen(), st)
+    node = st.root_node
+    
+    func = node[1]
+    @test is_model(Gen(), func)
+    
+    func_body = func[2,2] # block
 
     x_def = func_body[1]
-    @test get_random_variable_node(Gen(), VariableDefinition(x_def)) == x_def[2,1,1,1]
-    @test sourcetext(get_program_variable_node(Gen(), VariableDefinition(x_def))) == "x" 
-    y_def = func_body[2]
-    @test get_random_variable_node(Gen(), VariableDefinition(y_def)) == y_def[1,1,1]
-    @test get_program_variable_node(Gen(), VariableDefinition(y_def)).val == :_
-    z_def = func_body[4]
-    @test get_random_variable_node(Gen(), VariableDefinition(z_def)) == z_def[1]
-    @test sourcetext(get_program_variable_node(Gen(), VariableDefinition(z_def))) == "z" 
-    e_def = func_body[5]
-    f_def = func_body[6]
-    @test kind(get_random_variable_node(Gen(), VariableDefinition(f_def))) == K"string"
-    @test get_program_variable_node(Gen(), VariableDefinition(f_def)).val == :_
-    g_def = func_body[7]
-    @test sourcetext(get_random_variable_node(Gen(), VariableDefinition(g_def))) == "h" 
-    @test sourcetext(get_program_variable_node(Gen(), VariableDefinition(g_def))) == "g" 
+    @test is_random_variable_definition(Gen(), x_def)
+    address_node = get_address_node(Gen(), VariableDefinition(x_def))
+    @test kind(address_node) == K"braces" && address_node[1,1].val == :x
+    @test string(get_random_variable_name(Gen(), VariableDefinition(x_def))) == ":x"
+    @test is_observed(Gen(), VariableDefinition(x_def)) == false
 
+    y_def = func_body[2]
+    @test is_random_variable_definition(Gen(), y_def)
+    address_node = get_address_node(Gen(), VariableDefinition(y_def))
+    @test kind(address_node) == K"braces" && address_node[1,1].val == :y
+    @test string(get_random_variable_name(Gen(), VariableDefinition(y_def))) == ":y"
+    @test is_observed(Gen(), VariableDefinition(y_def)) == true
+
+    z_def = func_body[4]
+    @test is_random_variable_definition(Gen(), z_def)
+    address_node = get_address_node(Gen(), VariableDefinition(z_def))
+    @test kind(address_node) == K"quote" && address_node[1].val == :z
+    @test string(get_random_variable_name(Gen(), VariableDefinition(z_def))) == ":z"
+    @test is_observed(Gen(), VariableDefinition(z_def)) == true
+    
+    e_def = func_body[5]
+    @test is_random_variable_definition(Gen(), e_def)
+    address_node = get_address_node(Gen(), VariableDefinition(e_def))
+    @test kind(address_node) == K"braces" && kind(address_node[1,2]) == K"=>"
+    @test is_observed(Gen(), VariableDefinition(e_def)) == true
+
+    f_def = func_body[6]
+    @test is_random_variable_definition(Gen(), f_def)
+    address_node = get_address_node(Gen(), VariableDefinition(f_def))
+    @test kind(address_node) == K"braces" && address_node[1,1].val == "f"
+    @test string(get_random_variable_name(Gen(), VariableDefinition(f_def))) == "\"f\""
+    @test is_observed(Gen(), VariableDefinition(f_def)) == true
+
+    g_def = func_body[7]
+    @test is_random_variable_definition(Gen(), g_def)
+    @test g_def[1].val == :g
+    @test string(get_random_variable_name(Gen(), VariableDefinition(g_def))) == ":h"
+    @test is_observed(Gen(), VariableDefinition(g_def)) == false
 
     dist_node = get_distribution_node(Gen(), VariableDefinition(x_def))
     @test sourcetext(dist_node) == "normal(0., 1.)"
@@ -49,33 +76,6 @@
     @test dist_name == "Normal"
     @test sourcetext(dist_params["location"]) == "0."
     @test sourcetext(dist_params["scale"]) == "1."
-
-    for (def, name, is_obs) in [(x_def,:x,false), (y_def,:y,true), (z_def,:z,true), (e_def,Symbol(":e => i"),true), (f_def,Symbol("\"f\""),true)]
-        @test is_random_variable_definition(Gen(), def)
-        variable = VariableDefinition(def)
-        @test get_random_variable_name(Gen(), variable) == name
-        @test is_observed(Gen(), variable) == is_obs
-    end
-
-
-
-    source_code = """
-    @gen function test(x)
-        for i in eachindex(x)
-            {:y => i} ~ normal(0, 1)
-            {:z => i} ~ bernoulli(0.5)
-        end
-    end
-    x = [1,2,3]
-    observations = choicemap()
-    for x in eachindex(x)
-        observations[:y => i] = 0.
-        observations[:z=>i] = 1
-    end
-    """
-    node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    func_body = node[2,2]
-    
 
     source_code = """
     @gen function test(x)
@@ -95,8 +95,11 @@
         observations[:x] = 1
     end
     """
-    node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    func_body = node[2,2]
+    st = get_syntax_tree_for_str(source_code)
+    preprocess_syntaxtree!(Gen(), st)
+    node = st.root_node
+
+    func_body = node[1,2,2]
     y_def = func_body[1,2,1]
     z_def = func_body[1,2,2]
     x_def = func_body[2]

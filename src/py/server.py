@@ -2,12 +2,12 @@ from jsonrpc_server import run_server, _SESSION
 
 import ast
 from ast_utils.scoped_tree import ScopedTree, get_scoped_tree
-from ast_utils.position_parent import add_position_and_parent, SyntaxTree
+from ast_utils.preprocess import preprocess_syntaxtree, SyntaxTree
 from ast_utils.node_finders import VariableDefinitionCollector, find_model, find_guide
 from ast_utils.utils import *
 
 from analysis.call_graph import compute_call_graph
-from analysis.data_control_flow import * 
+from analysis.data_control_flow import data_deps_for_node, control_parents_for_node
 import analysis.interval_arithmetic as interval_arithmetic
 import analysis.symbolic as symbolic
 
@@ -15,9 +15,9 @@ from ppls import *
 import server_interface
 import uuid
 
-def get_syntax_tree(file_content: str, line_offsets: list[int]) -> SyntaxTree:
+def get_syntax_tree(file_content: str, line_offsets: list[int], n_unroll_loops: int, uniquify_calls: bool) -> SyntaxTree:
     syntax_tree = ast.parse(file_content)
-    syntax_tree = add_position_and_parent(syntax_tree, file_content, line_offsets)
+    syntax_tree = preprocess_syntaxtree(syntax_tree, file_content, line_offsets, n_unroll_loops, uniquify_calls)
     return syntax_tree
 
 def get_variables(syntax_tree: SyntaxTree, ppl: PPL) -> list[VariableDefinition]:
@@ -32,6 +32,7 @@ def to_syntax_node(syntax_tree: SyntaxTree, node: ast.AST) -> server_interface.S
 
 def to_random_variable(syntax_tree: SyntaxTree, variable: VariableDefinition, ppl: PPL, is_observed: bool) -> server_interface.RandomVariable:
     name = ppl.get_random_variable_name(variable)
+    address_node = to_syntax_node(syntax_tree, ppl.get_address_node(variable))
 
     node = to_syntax_node(syntax_tree, variable.node)
 
@@ -44,62 +45,57 @@ def to_random_variable(syntax_tree: SyntaxTree, variable: VariableDefinition, pp
         [server_interface.DistributionParam(k, to_syntax_node(syntax_tree, v)) for k,v in dist_params.items()]
         )
 
-    return server_interface.RandomVariable(node, name, distribution, is_observed)
+    return server_interface.RandomVariable(node, name, address_node, distribution, is_observed)
 
-_PPL_DICT =  {
+_PPL_DICT: dict[str, PPL] =  {
     "pyro": Pyro(),
     "pymc": PyMC(),
     "beanmachine": Beanmachine()
 }
 
-def build_ast(file_name: str, ppl: str) -> str:
+def build_ast(file_name: str, ppl: str, n_unroll_loops: int) -> str:
     print("build_ast")
+    print("FILENAME:", file_name)
     line_offsets = get_line_offsets(file_name)
     file_content = get_file_content(file_name)
     ppl_obj = _PPL_DICT[ppl]
-    syntax_tree = get_syntax_tree(file_content, line_offsets)
+    uniquify_calls = ppl != "beanmachine"
+    syntax_tree = get_syntax_tree(file_content, line_offsets, n_unroll_loops, uniquify_calls)
+    syntax_tree = ppl_obj.preprocess_syntax_tree(syntax_tree)
 
     scoped_tree = get_scoped_tree(syntax_tree)
     uuid4 = str(uuid.uuid4())
-    _SESSION[uuid4] = scoped_tree
+    _SESSION[uuid4] = ppl_obj, scoped_tree
     return uuid4
 
-def get_model(file_name: str, ppl: str) -> server_interface.Model:
+def get_model(tree_id: str) -> server_interface.Model:
     print("get_model")
-    line_offsets = get_line_offsets(file_name)
-    file_content = get_file_content(file_name)
-    ppl_obj =_PPL_DICT[ppl]
-    syntax_tree = get_syntax_tree(file_content, line_offsets)
+    ppl_obj, scoped_tree = _SESSION[tree_id]
 
-    model = find_model(syntax_tree.root_node, ppl_obj)
+    model = find_model(scoped_tree.root_node, ppl_obj)
 
-    return server_interface.Model(model.name, to_syntax_node(syntax_tree, model.node))
+    return server_interface.Model(model.name, to_syntax_node(scoped_tree.syntax_tree, model.node))
 
 
-def get_guide(file_name: str, ppl: str) -> server_interface.Model:
+def get_guide(tree_id: str) -> server_interface.Model:
     print("get_guide")
-    line_offsets = get_line_offsets(file_name)
-    file_content = get_file_content(file_name)
-    ppl_obj =_PPL_DICT[ppl]
-    syntax_tree = get_syntax_tree(file_content, line_offsets)
+    ppl_obj, scoped_tree = _SESSION[tree_id]
 
-    model = find_guide(syntax_tree.root_node, ppl_obj)
+    model = find_guide(scoped_tree.root_node, ppl_obj)
 
-    return server_interface.Model(model.name, to_syntax_node(syntax_tree, model.node))
+    return server_interface.Model(model.name, to_syntax_node(scoped_tree.syntax_tree, model.node))
 
 
-def get_random_variables(file_name: str, ppl: str) -> list[server_interface.RandomVariable]:
+def get_random_variables(tree_id: str) -> list[server_interface.RandomVariable]:
     print("get_random_variables")
-    line_offsets = get_line_offsets(file_name)
-    file_content = get_file_content(file_name)
-    ppl_obj =_PPL_DICT[ppl]
-    syntax_tree = get_syntax_tree(file_content, line_offsets)
 
-    variables = get_variables(syntax_tree, ppl_obj)
+    ppl_obj, scoped_tree = _SESSION[tree_id]
+
+    variables = get_variables(scoped_tree.syntax_tree, ppl_obj)
 
     response = []
     for variable in variables:
-        v = to_random_variable(syntax_tree, variable, ppl_obj, ppl_obj.is_observed(variable))
+        v = to_random_variable(scoped_tree.syntax_tree, variable, ppl_obj, ppl_obj.is_observed(variable))
         response.append(v)
 
     return response
@@ -108,63 +104,66 @@ def get_random_variables(file_name: str, ppl: str) -> list[server_interface.Rand
 def get_data_dependencies(tree_id: str, node: dict) -> list[server_interface.SyntaxNode]:
     print("get_data_dependencies")
 
-    scoped_tree: ScopedTree = _SESSION[tree_id]
+    _, scoped_tree = _SESSION[tree_id]
+
     node = scoped_tree.get_node_for_id(node["node_id"])
     data_deps = data_deps_for_node(scoped_tree, node)
-    response = [to_syntax_node(scoped_tree.syntax_tree, dep.node) for dep in data_deps]
+    response = [to_syntax_node(scoped_tree.syntax_tree, dep) for dep in data_deps]
     return response
 
-def get_control_parents(tree_id: str, node: dict) -> list[server_interface.ControlNode]:
-    print("get_control_parents")
+def get_control_dependencies(tree_id: str, node: dict) -> list[server_interface.ControlDependency]:
+    print("get_control_dependencies")
 
-    scoped_tree: ScopedTree = _SESSION[tree_id]
+    _, scoped_tree = _SESSION[tree_id]
+
     node = scoped_tree.get_node_for_id(node["node_id"])
     control_deps = control_parents_for_node(scoped_tree, node)
     response = []
     for dep in control_deps:
         if isinstance(dep, ast.If):
             kind = "if"
-            control_subnode = dep.test
+            control_node = dep.test
             body = [to_syntax_node(scoped_tree.syntax_tree, dep.body)]
             if hasattr(dep, "orelse"):
                 body.append(to_syntax_node(scoped_tree.syntax_tree, dep.orelse))
         elif isinstance(dep, ast.While):
             kind = "while"
-            control_subnode = dep.test
+            control_node = dep.test
             body = [to_syntax_node(scoped_tree.syntax_tree, dep.body)]
         elif isinstance(dep, ast.For):
             kind = "for"
-            control_subnode = dep.iter
+            control_node = dep.iter
             body = [to_syntax_node(scoped_tree.syntax_tree, dep.body)]
             
-        response.append(server_interface.ControlNode(
+        response.append(server_interface.ControlDependency(
             to_syntax_node(scoped_tree.syntax_tree, dep),
             kind,
-            to_syntax_node(scoped_tree.syntax_tree, control_subnode),
+            to_syntax_node(scoped_tree.syntax_tree, control_node),
             body
         ))
 
     return response
 
-def estimate_value_range(tree_id: str, expr: dict, assumptions: list[tuple[dict, dict]]) -> server_interface.Interval:
+def estimate_value_range(tree_id: str, expr: dict, mask: list[tuple[dict, dict]]) -> server_interface.Interval:
     print("estimate_value_range")
 
-    scoped_tree: ScopedTree = _SESSION[tree_id]
-    # assumptions is a list[tuple[RandomVariable, Interval]]
+    _, scoped_tree = _SESSION[tree_id]
+
+    # mask is a list[tuple[SyntaxNode, Interval]]
     valuation = {}
-    for rv, interval in assumptions:
-        rv = server_interface.RandomVariable.from_dict(rv)
+    for _node, interval in mask:
+        _node = server_interface.SyntaxNode.from_dict(_node)
         interval = server_interface.Interval.from_dict(interval)
         parsed_interval = interval_arithmetic.Interval(float(interval.low), float(interval.high))
-        rv_node = scoped_tree.get_node_for_id(rv.node.node_id)
-        if isinstance(rv_node, ast.Assign):
-            program_variable_symbol = get_assignment_name(rv_node).id
+        node = scoped_tree.get_node_for_id(_node.node_id)
+        if isinstance(node, ast.Assign):
+            program_variable_symbol = get_assignment_name(node).id
             valuation[program_variable_symbol] = parsed_interval
-        elif isinstance(rv_node, ast.FunctionDef):
-            program_variable_symbol = rv_node.name
+        elif isinstance(node, ast.FunctionDef):
+            program_variable_symbol = node.name
             valuation[program_variable_symbol] = parsed_interval
         else:
-            print(f"Cannot mask node of type {type(rv_node)}.")
+            print(f"Cannot mask node of type {type(node)} {source_text(node)}.")
 
     expr = server_interface.SyntaxNode.from_dict(expr)
     node_to_evaluate = scoped_tree.get_node_for_id(expr.node_id)
@@ -177,7 +176,8 @@ def estimate_value_range(tree_id: str, expr: dict, assumptions: list[tuple[dict,
 def get_call_graph(tree_id: str, node: dict) -> list[server_interface.CallGraphNode]:
     print("get_call_graph")
 
-    scoped_tree: ScopedTree = _SESSION[tree_id]
+    _, scoped_tree = _SESSION[tree_id]
+
     node = scoped_tree.get_node_for_id(node["node_id"])
 
     call_graph = compute_call_graph(scoped_tree.root_node, scoped_tree.scope_info, node)
@@ -192,12 +192,13 @@ def get_call_graph(tree_id: str, node: dict) -> list[server_interface.CallGraphN
     return call_nodes
 
 
-def get_path_conditions(tree_id: str, root: dict, nodes: list[dict], assumptions: list[tuple[dict, server_interface.SymbolicExpression]]) -> list[server_interface.SymbolicExpression]:
+def get_path_conditions(tree_id: str, root: dict, nodes: list[dict], mask: list[tuple[dict, server_interface.SymbolicExpression]]) -> list[server_interface.SymbolicExpression]:
     print("get_path_conditions")
-    scoped_tree: ScopedTree = _SESSION[tree_id]
+    _, scoped_tree = _SESSION[tree_id]
+
     root = scoped_tree.get_node_for_id(root["node_id"])
     nodes = [scoped_tree.get_node_for_id(node["node_id"]) for node in nodes]
-    node_to_symbol = {scoped_tree.get_node_for_id(node["node_id"]): symbolic.Symbol_from_str(sexp["expr"]) for node, sexp in assumptions}
+    node_to_symbol = {scoped_tree.get_node_for_id(node["node_id"]): symbolic.Symbol_from_str(sexp["expr"]) for node, sexp in mask}
 
     result = symbolic.get_path_condition_for_nodes(root, nodes, node_to_symbol)
     path_conditions = [server_interface.SymbolicExpression(symbolic.path_condition_to_str(result[node])) for node in nodes]
@@ -223,7 +224,7 @@ if __name__ == '__main__':
     dispatcher["get_model"] = get_model
     dispatcher["get_guide"] = get_guide
     dispatcher["get_data_dependencies"] = get_data_dependencies
-    dispatcher["get_control_parents"] = get_control_parents
+    dispatcher["get_control_dependencies"] = get_control_dependencies
     dispatcher["estimate_value_range"] = estimate_value_range
     dispatcher["get_call_graph"] = get_call_graph
     dispatcher["get_path_conditions"] = get_path_conditions

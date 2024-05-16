@@ -4,7 +4,7 @@ sys.path.insert(0, 'src/py') # hack for now
 
 import ast
 from ast_utils.utils import *
-from ast_utils.position_parent import *
+from ast_utils.preprocess import *
 from ast_utils.node_finder import NodeFinder
 from ast_utils.scoped_tree import *
 
@@ -21,7 +21,7 @@ end
         """
         parsed_ast = ast.parse(source_code)
         line_offsets = get_line_offsets_for_str(source_code)
-        syntax_tree = add_position_and_parent(parsed_ast, source_code, line_offsets)
+        syntax_tree = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0)
         scoped_tree = get_scoped_tree(syntax_tree)
 
         node = scoped_tree.root_node
@@ -48,7 +48,8 @@ a,b,c = 2,3,4
         """
         parsed_ast = ast.parse(source_code)
         line_offsets = get_line_offsets_for_str(source_code)
-        syntax_tree = add_position_and_parent(parsed_ast, source_code, line_offsets)
+        syntax_tree = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0)
         scoped_tree = get_scoped_tree(syntax_tree)
-        self.assertEqual(len(scoped_tree.all_definitions), 4)
-        self.assertEqual([ass.name for ass in scoped_tree.all_definitions], ['x', 'a', 'b', 'c'])
+        self.assertEqual(len(scoped_tree.all_definitions), 5)
+        self.assertTrue(scoped_tree.all_definitions[1].name.startswith('__TMP__'))
+        self.assertEqual([ass.name for ass in scoped_tree.all_definitions], ['x', scoped_tree.all_definitions[1].name, 'a', 'b', 'c'])

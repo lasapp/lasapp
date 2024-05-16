@@ -13,7 +13,7 @@ class TestGuideValidation(BaseTestCase):
     def _get_violations(self, program_text, language):
         path = self.write_program(program_text, language)
         program = ProbabilisticProgram(path)
-        violations = check_guide(program)
+        violations = check_proposal(program)
         program.close()
         os.remove(path)
         return violations
@@ -115,7 +115,7 @@ end
 end
 
         """
-        self._test_1(program_text, "julia", {"A": "A", "B": "B", "C": "C", "D": "D", "E": "E"})
+        self._test_1(program_text, "julia", {"A": ":A", "B": ":B", "C": ":C", "D": ":D", "E": ":E"})
 
 if __name__ == "__main__":
     unittest.main()

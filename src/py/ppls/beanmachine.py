@@ -4,6 +4,7 @@ from ast_utils.utils import get_call_name, source_text
 from ast_utils.node_finder import NodeFinder
 from .torch_distributions import parse_torch_distribution
 from typing import Union
+from ast_utils.preprocess import SyntaxTree
 
 class Beanmachine(PPL):
     def __init__(self) -> None:
@@ -29,6 +30,9 @@ class Beanmachine(PPL):
     
     def get_program_variable_name(self, variable: VariableDefinition) -> str:
         return variable.node.name
+    
+    def get_address_node(self, variable: VariableDefinition) -> ast.AST:
+        return variable.node.args
 
     def is_model(self, node: ast.AST) -> bool:
         return isinstance(node, ast.Module)
@@ -113,8 +117,7 @@ class Beanmachine(PPL):
             # if we have one return statement, we take return expression
             return return_stmts[0].value
         else:
-            # we take function body
-            return body
+            raise Exception("Only one return allowed in @bm.random_variable")
         
     
     def get_distribution(self, distribution_node: ast.AST) -> tuple[str, dict[str, ast.AST]]:
@@ -132,3 +135,6 @@ class Beanmachine(PPL):
         dist_name, dist_params = parse_torch_distribution(name, args, kwargs)
 
         return dist_name, dist_params
+    
+    def preprocess_syntax_tree(self, syntax_tree: SyntaxTree) -> SyntaxTree:
+        return syntax_tree

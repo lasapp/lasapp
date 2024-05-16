@@ -17,9 +17,9 @@
     syntax_tree = get_syntax_tree_for_str(source_code)
     scoped_tree = get_scoped_tree(syntax_tree)
 
-    @test length(scoped_tree.all_definitions) == 4
-    @test [def.name for def in scoped_tree.all_definitions] == [:x, :a, :b, :c]
-    @test scoped_tree.topscope.symbols == Set([:x, :a, :b, :c])
+    @test length(scoped_tree.all_definitions) == 5
+    @test [def.name for def in scoped_tree.all_definitions] == [:x, :__TMP__node_4, :a, :b, :c]
+    @test scoped_tree.topscope.symbols == Set([:__TMP__node_4, :x, :a, :b, :c])
 
     source_code = """
     f = 1
@@ -68,16 +68,16 @@
     @test Set([:x, :inner]) == outer_scope.symbols
     @test Set([:y, :z]) == inner_scope.symbols
     x = scoped_tree.root_node[1,2,1,1]
-    @test scoped_tree.node_to_scope[x] == outer_scope
+    @test scoped_tree.identifier_to_scope[x] == outer_scope
     
     y = scoped_tree.root_node[1,2,2,2,1,1]
-    @test scoped_tree.node_to_scope[y] == inner_scope
+    @test scoped_tree.identifier_to_scope[y] == inner_scope
 
     outer = scoped_tree.root_node[1,1,1]
-    @test scoped_tree.node_to_scope[outer] == global_scope
+    @test scoped_tree.identifier_to_scope[outer] == global_scope
     
     inner = scoped_tree.root_node[1,2,2,1,1]
-    @test scoped_tree.node_to_scope[inner] == outer_scope
+    @test scoped_tree.identifier_to_scope[inner] == outer_scope
 
 
     @test find_innermost_scope_for_node(global_scope, outer) == global_scope
@@ -124,16 +124,16 @@
     @test Set([:x, :z]) == outer_scope.symbols
 
     i = scoped_tree.root_node[1,2,3,1,1]
-    @test scoped_tree.node_to_scope[i] == for_scope
+    @test scoped_tree.identifier_to_scope[i] == for_scope
 
     i2 = scoped_tree.root_node[1,2,3,2,1,2,1]
-    @test scoped_tree.node_to_scope[i] == for_scope
+    @test scoped_tree.identifier_to_scope[i] == for_scope
 
     y = scoped_tree.root_node[1,2,3,2,1,1]
-    @test scoped_tree.node_to_scope[y] == for_scope
+    @test scoped_tree.identifier_to_scope[y] == for_scope
 
     z = scoped_tree.root_node[1,2,3,2,2,1]
-    @test scoped_tree.node_to_scope[z] == outer_scope
+    @test scoped_tree.identifier_to_scope[z] == outer_scope
 
 
 
@@ -187,10 +187,10 @@
     while_scope = B_scope.children[1]
     x = while_scope.node[1,1]
     @test find_innermost_scope_for_node(global_scope, x) == while_scope
-    @test scoped_tree.node_to_scope[x] == A_scope
+    @test scoped_tree.identifier_to_scope[x] == A_scope
     x = while_scope.node[2,1,1]
     @test find_innermost_scope_for_node(global_scope, x) == while_scope
-    @test scoped_tree.node_to_scope[x] == A_scope
+    @test scoped_tree.identifier_to_scope[x] == A_scope
 
 
     source_code = """
@@ -209,9 +209,9 @@
     A_scope = global_scope.children[1]
     B_scope = A_scope.children[1]
     B = A_scope.node[2,2,1]
-    @test scoped_tree.node_to_scope[B] == A_scope
+    @test scoped_tree.identifier_to_scope[B] == A_scope
     A = B_scope.node[2,1,1]
-    @test scoped_tree.node_to_scope[A] == global_scope
+    @test scoped_tree.identifier_to_scope[A] == global_scope
 
     source_code = "[x for x in 1:10]"
     syntax_tree = get_syntax_tree_for_str(source_code)

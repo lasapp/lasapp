@@ -53,11 +53,19 @@ function Base.:^(x::Interval, n::Real)
     end
 end
 function Base.:^(x::Interval, n::Interval)
-    @assert n.low == n.high
-    return x^n.low
+    if n.low == n.high
+        return x^n.low
+    else
+        # fallback
+        return Interval(0., Inf)
+    end
 end
 Base.min(x::Interval, y::Interval) = Interval(min(x.low, y.low), min(x.high, y.high))
 Base.max(x::Interval, y::Interval) = Interval(max(x.low, y.low), max(x.high, y.high))
+
+logistic(x::Interval) = Interval(0., 1.)
+
+Base.clamp(x::Interval, a::Interval, b::Interval) = max(a, min(x, b))
 
 const SYMBOL_TO_FUNC = Dict(
     :+ => +,
@@ -70,6 +78,8 @@ const SYMBOL_TO_FUNC = Dict(
     :^ => ^,
     :min => min,
     :max => max,
+    :logistic => logistic,
+    :clamp => clamp,
 )
 
 
@@ -86,6 +96,9 @@ function visit(visitor::StaticIntervalEvaluator, node::SyntaxNode)::Interval
 
     if kind(node) == K"Identifier"
         if !haskey(visitor.valuation, node.val)
+            if node.val == :I
+                return Interval(0, 1) # Identity matrix form LinearAlgebra package
+            end
             # no valuation for identifier found -> overapproximate as arbitary real number
             @warn "Unknown symbol $(node.val) encountered."
             return Interval(-Inf, Inf)
@@ -107,6 +120,9 @@ function visit(visitor::StaticIntervalEvaluator, node::SyntaxNode)::Interval
         if JuliaSyntax.is_infix_op_call(node)
             call_name_node = children[2]
             deleteat!(children, 2)
+        elseif JuliaSyntax.is_postfix_op_call(node)
+            call_name_node = children[end]
+            deleteat!(children, length(children))
         else
             call_name_node = children[1]
             deleteat!(children, 1)
@@ -147,65 +163,61 @@ function visit(visitor::StaticIntervalEvaluator, node::SyntaxNode)::Interval
         return visit(visitor, node[1])
     end
 
+    if kind(node) == K"macrocall" && node[1].val == Symbol("@.")
+        return visit(visitor, node[2])
+    end
+
+    if kind(node) == K"vect" && length(node.children) > 0
+        # arrays are approximated by having one interval for *all* elements
+        args = [visit(visitor, child) for child in node.children]
+        return reduce(∪, args)
+    end
+
     error("Encountered unsupported node $(node) with kind $(kind(node))")
+end
+
+function _static_interval_eval(cfg_progr_repr::CFGRepresentation, node_to_evaluate::SyntaxNode, valuation::Dict{Symbol, Interval})
+    identifiers = get_identifiers_read_in_syntaxnode(cfg_progr_repr.scoped_tree, node_to_evaluate)
+    _, cfgnode = get_cfgnode_for_syntaxnode(cfg_progr_repr, node_to_evaluate)
+    
+    # update valuation by trying to estimate interval for each identifier read in syntaxnode
+    for identifier in identifiers
+        identifier_name = identifier.val
+        if !haskey(valuation, identifier_name)
+
+            rds = get_RDs(cfg_progr_repr.scoped_tree, cfgnode, identifier)
+            if length(rds) == 0
+                # no reaching definition found
+            else # length(rds) > 0
+                intervals = Interval[]
+                for rd in rds
+                    if rd.type == ASSIGN_NODE
+                        @assert kind(rd.syntaxnode) == K"=" "Unsupported assign node $(rd.syntaxnode)"
+                        rhs = rd.syntaxnode[2]
+                        push!(intervals, _static_interval_eval(cfg_progr_repr, rhs, valuation))
+                    else # else rd.type == FUNCARG_NODE, we do not evaluate
+                        push!(intervals, Interval(-Inf, Inf))
+                    end
+                end
+                valuation[identifier_name] = reduce(∪, intervals)
+            end
+        end
+    end
+    return visit(StaticIntervalEvaluator(valuation), node_to_evaluate)
 end
 
 # Assumptions: SSA and only elementary functions -> all definitions in same scope
 # Only exception: one assignment per if branch
 # Elements of array all have same interval
-function static_interval_eval(scoped_tree::ScopedTree, node_to_evaluate::SyntaxNode, valuation::Dict{Symbol, Interval})::Interval
-    # get all data dependencies by recursively calling and traversing data_deps_for_node
-    # should be only assingments
-    data_deps = Set{Assignment}()
-    nodes = [node_to_evaluate]
-    while !isempty(nodes)
-        node = popfirst!(nodes)
-        for dep in data_deps_for_node(scoped_tree, node)
-            if !(dep in data_deps)
-                if !haskey(valuation, dep.name) # otherwise already abstracted away
-                    push!(data_deps, dep)
-                    push!(nodes, dep.node)
-                end
-            end
+function static_interval_eval(cfg_progr_repr::CFGRepresentation, node_to_evaluate::SyntaxNode, valuation::Dict{Symbol, Interval})::Interval
+    try
+        return _static_interval_eval(cfg_progr_repr, node_to_evaluate, valuation)
+    catch e
+        if e isa StackOverflowError
+            # we could catch recusion already in _static_interval_eval, but this is simpler
+            return Interval(-Inf, Inf)
+        else
+            rethrow(e)
         end
     end
-    # list of assignments in sequential order
-    data_deps = sort(collect(data_deps), lt=(x,y) -> JuliaSyntax.first_byte(x.node) < JuliaSyntax.first_byte(y.node))
-    # println(data_deps)
-    
-    # statically evaluate in sequential order
-    tmp_valuation = Dict{Symbol, Interval}()
-    evaluator = StaticIntervalEvaluator(valuation)
-    for (i,dep) in enumerate(data_deps)
-        @assert kind(dep.node) == K"=" # only support assignments
-
-        rhs = dep.node[2]
-        res = visit(evaluator, rhs)
-
-        if haskey(valuation, dep.name)
-            # multiple assignments
-            # should only happen if assignments are in different branches
-            # this over-approximates resulting set (union of intervals) as interval
-            # this is used after if branches, i.e. last time dep.name was assigned (lexicographically)
-            if !haskey(tmp_valuation, dep.name)
-                tmp_valuation[dep.name] = valuation[dep.name] # this is first assignment of dep.name
-            end
-            tmp_valuation[dep.name] = res ∪ tmp_valuation[dep.name] # union of all assignments
-        end
-        
-        valuation[dep.name] = res # (is used also by evaluator)
-
-        if haskey(tmp_valuation, dep.name)
-            if !any(future_dep.name == dep.name for future_dep in data_deps[i+1:end])
-                # we reached last (of multiple) assignment of dep.name
-                # we now write the over-approximation (union of intervals of all assignments)
-                valuation[dep.name] = tmp_valuation[dep.name]
-            end
-        end
-    end
-
-    # lastly, evaluate node where all dependencies are masked with their intervals
-    res = visit(evaluator, node_to_evaluate)
-    
-    return res
 end

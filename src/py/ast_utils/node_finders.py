@@ -14,9 +14,10 @@ def find_model_or_guide(root_node: ast.Module, ppl: PPL, keyword: str):
     model_name = ""
     for stmt in root_node.body:
         match stmt:
-            case ast.Assign(targets=[ast.Name(id=keyword)], value=ast.Name(id=name)):
-                model_name = name
-                break
+            case ast.Assign(targets=[ast.Name(id=_keyword)], value=ast.Name(id=name)):
+                if _keyword == keyword:
+                    model_name = name
+                    break
 
     if model_name == "":
         print(f"{keyword.title()} name not found. Defaulting to '{keyword}'.")
@@ -27,7 +28,7 @@ def find_model_or_guide(root_node: ast.Module, ppl: PPL, keyword: str):
         lambda node: node
     ).visit(root_node)
 
-    assert len(result) > 0, f"No {keyword} definition found."
+    assert len(result) > 0, f"No model {keyword} definition found."
     assert len(result) == 1, f"Multiple {keyword} definition found."
 
     return Model(model_name, result[0])

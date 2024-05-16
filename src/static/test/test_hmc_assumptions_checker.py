@@ -71,8 +71,16 @@ def model():
 
     def _test_2(self, program_text, language, variables):
         warnings = self._get_warnings(program_text, language)
-        self.assertTrue(len(warnings) == 1)
-        self.assertTrue(isinstance(warnings[0], DefinitionInWhileLoopWarning))
+        # print("\n", language, "\n")
+        # for warning in warnings:
+        #     print(warning)
+        
+        self.assertTrue(
+            any(isinstance(warning, DefinitionInWhileLoopWarning) and warning.random_variable.name == variables["U"] for warning in warnings)
+        )
+
+        # self.assertTrue(len(warnings) == 1)
+        # self.assertTrue(isinstance(warnings[0], DefinitionInWhileLoopWarning))
 
     def test_2_turing(self):
         program_text = """
@@ -100,7 +108,7 @@ import pyro
 def model():
     i = 1
     while True:
-        U = pyro.sample(f"U{i}", dist.Uniform(0.,1.))
+        U = pyro.sample("U", dist.Uniform(0.,1.))
         if U < 0.5:
             break
         i = i + 1

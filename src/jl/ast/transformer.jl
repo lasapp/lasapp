@@ -24,7 +24,24 @@ function visit!(visitor::NodeTransformer, node::SyntaxNode)::Union{Nothing,Synta
     return generic_visit!(visitor, node)
 end
 
-function set_children!(node::SyntaxNode, children::Union{Nothing,Vector{SyntaxNode}})
+function add_child!(node::SyntaxNode, child::SyntaxNode)
+    push!(node.children, child)
+    child.parent = node
+end
+
+function delete_child!(node::SyntaxNode, child::SyntaxNode)
+    ix = findfirst(c -> c == child, node.children)
+    deleteat!(node.children, ix)
+    child.parent = nothing
+    return ix
+end
+
+function insert_child!(node::SyntaxNode, index::Integer, child::SyntaxNode)
+    insert!(node.children, index, child)
+    child.parent = node
+end
+
+function set_children!(node::SyntaxNode, children::Vector{SyntaxNode})
     node.children = children
     for child in children
         child.parent = node

@@ -14,14 +14,18 @@ def step(t):
 @bm.functional
 def position(t):
     if t == 0:
-        return start()
-    return position(t-1) + step(t)
+        p = start()
+    else:
+        p = position(t-1) + step(t)
+    return p
 
 @bm.functional
 def distance(t):
     if t == 0:
-        return torch.tensor(0.)
-    return distance(t-1) + step(t).abs()
+        d = torch.tensor(0.)
+    else:
+        d = distance(t-1) + step(t).abs()
+    return d
 
 @bm.random_variable
 def end_distance():

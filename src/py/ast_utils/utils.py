@@ -42,10 +42,10 @@ def get_name(target: ast.AST) -> ast.Name:
     if isinstance(target, ast.Subscript):
         assert isinstance(target.value, ast.Name)
         return target.value
-    raise ValueError("Name not found.")
+    raise ValueError(f"Name not found in {ast.unparse(target)}.")
 
 def get_assignment_name(node: ast.Assign) -> ast.Name:
-    assert isinstance(node, ast.Assign) and len(node.targets) == 1
+    assert isinstance(node, ast.Assign) and len(node.targets) == 1, f"Cannot get_assignment_name for {ast.dump(node)}"
     return get_name(node.targets[0])
 
 # For a call SyntaxNode, returns the Identifier SyntaxNode of the called function.
@@ -54,18 +54,20 @@ def get_call_name(node: ast.Call) -> str:
     assert isinstance(node, ast.Call)
     if isinstance(node.func, ast.Name):
         return node.func.id
-    if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+    if isinstance(node.func, ast.Attribute): # and isinstance(node.func.value, ast.Name):
         return node.func.attr
 
-
+from copy import deepcopy
 class Block(ast.AST):
     def __init__(self, body: list[ast.AST]):
-        fields = []
-        for i, stmt in enumerate(body):
-            field = f"stmt_{i}"
-            setattr(self, field, stmt)
-            fields.append(field)
-        self._fields = fields
+        # fields = []
+        # for i, stmt in enumerate(body):
+        #     field = f"stmt_{i}"
+        #     setattr(self, field, stmt)
+        #     fields.append(field)
+        # self._fields = fields
+        self.elts = body
+        self._fields = ['elts']
         # take position from first element
         self.lineno = body[0].lineno
         self.col_offset = body[0].col_offset
@@ -75,13 +77,45 @@ class Block(ast.AST):
         self._attributes = ("lineno", "col_offset", "end_lineno", "end_col_offset")
 
     def __len__(self):
-        return len(self._fields)
+        return len(self.elts)
     
     def __getitem__(self, key):
-        return getattr(self, f"stmt_{key}")     
+        # return getattr(self, f"stmt_{key}") 
+        return self.elts[key]    
     
     def __iter__(self):
-        return (self[i] for i in range(len(self)))
+        return (self.elts[i] for i in range(len(self)))
+    
+    def __deepcopy__(self, memo):
+        if id(self) in memo:
+            return memo[id(self)]
+        new_body = [deepcopy(stmt, memo) for stmt in self]
+        return Block(new_body)
+
+def _unparse_Block(self: ast._Unparser, node: Block):
+    for item in node:
+        self.traverse(item)
+ast._Unparser.visit_Block = _unparse_Block
+
+def _unparse_If(self: ast._Unparser, node: ast.If):
+    self.fill("if ")
+    self.traverse(node.test)
+    with self.block():
+        self.traverse(node.body)
+    # collapse nested ifs into equivalent elifs.
+
+    while hasattr(node, "orelse") and node.orelse and len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+        node = node.orelse[0]
+        self.fill("elif ")
+        self.traverse(node.test)
+        with self.block():
+            self.traverse(node.body)
+    # final else
+    if hasattr(node, "orelse") and node.orelse:
+        self.fill("else")
+        with self.block():
+            self.traverse(node.orelse)
+ast._Unparser.visit_If = _unparse_If
     
 # Returns true if the two nodes are located in mutually exclusive if branches
 # i.e. if node is in descendant of if branch and other of else branch, and vice versa
@@ -110,3 +144,8 @@ def is_descendant(parent: ast.AST, node: ast.AST) -> bool:
         if parent == node:
             return True
     return False
+
+class IdPrinter(ast.NodeVisitor):
+    def visit(self, node: ast.AST):
+        print(node)
+        self.generic_visit(node)

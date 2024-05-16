@@ -3,6 +3,7 @@ import lasapp
 import lasapp.distributions as dists
 from .utils import is_descendant
 from itertools import combinations
+from typing import Optional
 
 class ACViolationWarning:
     pass
@@ -20,36 +21,53 @@ class OverlappingSampleStatements(ACViolationWarning):
         s += f"{self.rv1.node.source_text} in path {self.pc1} and {self.rv2.node.source_text} in path {self.pc2} may be executed at the same time."
         return s
     
+
+class GlobalAbsoluteContinuityViolation(ACViolationWarning):
+    def __init__(self, P: lasapp.Model, Q: lasapp.Model, info) -> None:
+        self.P = P
+        self.Q = Q
+        self.info = info
+    def __repr__(self) -> str:
+        return f"GlobalAbsoluteContinuityViolation:\n Density of {self.P.name} greater than 0 does not imply density of {self.Q.name} greater than 0 ({self.info})."     
+
 class AbsoluteContinuityViolation(ACViolationWarning):
-    def __init__(self, rv_name, info) -> None:
+    def __init__(self, P: lasapp.Model, Q: lasapp.Model, rv_name, info) -> None:
+        self.P = P
+        self.Q = Q
         self.rv_name = rv_name
         self.info = info
     def __repr__(self) -> str:
-        return f"AbsoluteContinuityViolation:\nSampling {self.rv_name} in model does not imply sampling in guide ({self.info})."
+        return f"AbsoluteContinuityViolation:\nSampling {self.rv_name} in {self.P.name} does not imply sampling in {self.Q.name} ({self.info})."
         
 
 class SupportTypeMismatch(ACViolationWarning):
-    def __init__(self, rv_name, model_rv, model_pc, guide_rv, guide_pc) -> None:
+    def __init__(self, P: lasapp.Model, Q: lasapp.Model, rv_name, P_rv, P_pc, Q_rv, Q_pc) -> None:
+        self.P = P
+        self.Q = Q
         self.rv_name = rv_name
-        self.model_rv = model_rv
-        self.model_pc = model_pc
-        self.guide_rv = guide_rv
-        self.guide_pc = guide_pc
+        self.P_rv = P_rv
+        self.P_pc = P_pc
+        self.Q_rv = Q_rv
+        self.Q_pc = Q_pc
     def __repr__(self) -> str:
-        s = f"SupportTypeMismatch for {self.rv_name} at {self.model_pc} ∧ {self.guide_pc}:\n"
-        s += f"Type of model rv {self.model_rv.node.source_text} is not type of guide {self.guide_rv.node.source_text} (or could not be inferred)."
+        s = f"SupportTypeMismatch for {self.rv_name} at {self.P_pc} ∧ {self.Q_pc}:\n"
+        s += f"Support type of {self.P.name} rv {self.P_rv.node.source_text} is not equal to type of {self.Q.name} rv {self.Q_rv.node.source_text} (or could not be inferred)."
         return s
     
 class SupportIntervalMismatch(ACViolationWarning):
-    def __init__(self, rv_name, model_rv, model_pc, guide_rv, guide_pc) -> None:
+    def __init__(self, P: lasapp.Model, Q: lasapp.Model, rv_name, P_rv, P_pc, P_rv_support, Q_rv, Q_pc, Q_rv_support) -> None:
+        self.P = P
+        self.Q = Q
         self.rv_name = rv_name
-        self.model_rv = model_rv
-        self.model_pc = model_pc
-        self.guide_rv = guide_rv
-        self.guide_pc = guide_pc
+        self.P_rv = P_rv
+        self.P_pc = P_pc
+        self.P_rv_support = P_rv_support
+        self.Q_rv = Q_rv
+        self.Q_pc = Q_pc
+        self.Q_rv_support = Q_rv_support
     def __repr__(self) -> str:
-        s = f"SupportIntervalMismatch for {self.rv_name} at {self.model_pc} ∧ {self.guide_pc}:\n"
-        s += f"Support of model rv {self.model_rv.node.source_text} is not subset of guide rv {self.guide_rv.node.source_text}"
+        s = f"SupportIntervalMismatch for {self.rv_name} at {self.P_pc} ∧ {self.Q_pc}:\n"
+        s += f"Support of {self.P.name} rv {self.P_rv.node.source_text} is not subset of support of {self.Q.name} rv {self.Q_rv.node.source_text} ({self.P_rv_support} vs {self.Q_rv_support})"
         return s
         
 
@@ -130,6 +148,7 @@ def parse_path_condition_str(s: lasapp.SymbolicExpression) -> z3.ExprRef:
                 return False
             return int(value)
         elif op.name in ("Real", "Int", "Bool"):
+            # TODO: maybe use only z3.Real
             assert len(op.children) == 1, op.children
             symbol = op.children[0]
             if symbol in z3_symbol_to_variable:
@@ -160,10 +179,10 @@ def get_path_conditions(
         program: lasapp.ProbabilisticProgram,
         model: lasapp.Model,
         variables:list[lasapp.RandomVariable],
-        assumptions: dict[lasapp.SyntaxNode, lasapp.SymbolicExpression]) -> dict[lasapp.RandomVariable,z3.ExprRef]:
+        mask: dict[lasapp.SyntaxNode, lasapp.SymbolicExpression]) -> dict[lasapp.RandomVariable,z3.ExprRef]:
 
     nodes = [rv.node for rv in variables]
-    path_condition_list = program.get_path_conditions(nodes, model.node, assumptions)
+    path_condition_list = program.get_path_conditions(nodes, model.node, mask)
     path_conditions = {}
     for rv, path_condition_str in zip(variables, path_condition_list):
         path_conditions[rv] = parse_path_condition_str(path_condition_str)
@@ -172,9 +191,13 @@ def get_path_conditions(
 # return distribution type of RandomVariable: discrete or continuous
 def get_type(rv: lasapp.RandomVariable):
     properties = dists.infer_distribution_properties(rv)
-    if properties is None:
-        return None
+    assert properties is not None, f"Could not find properties for {rv.node.source_text}"
     return properties.type
+
+def get_support_constraint(rv: lasapp.RandomVariable):
+    properties = dists.infer_distribution_properties(rv)
+    assert properties is not None, f"Could not find properties for {rv.node.source_text}"
+    return properties.support
 
 def get_param_with_name(distribution: lasapp.server_interface.Distribution, name: str):
     for param in distribution.params:
@@ -183,32 +206,41 @@ def get_param_with_name(distribution: lasapp.server_interface.Distribution, name
     return None
 
 # tries to infer support in terms of interval for RandomVariable
-def get_support_interval(rv: lasapp.RandomVariable):
-    properties = dists.infer_distribution_properties(rv)
-    if properties is None:
-        return None
-            
-    support_interval = dists.to_interval(properties.support)
+def get_support_interval(program: lasapp.ProbabilisticProgram, mask: dict[lasapp.SyntaxNode, lasapp.Interval], rv: lasapp.RandomVariable):
+    support_constraint = get_support_constraint(rv)
+    support_interval = dists.to_interval(support_constraint)
     if support_interval is None:
+        # print(f"Could not get support as interval for {rv.node.source_text}")
         return None
-    
-    if isinstance(support_interval.low, str):
-        param = get_param_with_name(rv.distribution, support_interval.low)
-        if param is None:
-            return None
-        support_interval.low = float(param.node.source_text)
 
-    if isinstance(support_interval.high, str):
-        param = get_param_with_name(rv.distribution, support_interval.high)
-        if param is None:
-            return None
-        support_interval.high = float(param.node.source_text)
+    if isinstance(support_interval.low, dists.ParamDependentBound):
+        param = get_param_with_name(rv.distribution, support_interval.low.param)
+        assert param is not None, f"No param for {support_interval.low}"
+        estimated_range = program.estimate_value_range(
+            expr=param.node,
+            mask=mask # mask up to now, rvs are sorted
+        )
+        support_interval.low = float(estimated_range.low)
+
+    if isinstance(support_interval.high, dists.ParamDependentBound):
+        param = get_param_with_name(rv.distribution, support_interval.high.param)
+        assert param is not None, f"No param for {support_interval.high}"
+        estimated_range = program.estimate_value_range(
+                    expr=param.node,
+                    mask=mask # mask up to now, rvs are sorted
+                )
+        support_interval.high = float(estimated_range.high)
 
     return support_interval
 
 
-def get_distribution_constraint(random_variable: lasapp.RandomVariable) -> z3.ExprRef:
-    rv_support = get_support_interval(random_variable)
+def get_distribution_constraint(program: lasapp.ProbabilisticProgram, random_variable: lasapp.RandomVariable) -> Optional[z3.ExprRef]:
+    # NOTE: here we assume no mask necessary to obtain support interval (static support)
+    # i.e. the support does not depend on other rvs
+    rv_support = get_support_interval(program, dict(), random_variable)
+    if rv_support is None:
+        return None
+    
     t = get_type(random_variable)
     var = z3.Int(random_variable.name) if t == dists.DistributionType.Discrete else z3.Real(random_variable.name)
 
@@ -244,117 +276,130 @@ def group_by_name(random_variables: list[lasapp.RandomVariable]) -> dict[str, li
         result[rv.name].append(rv)
     return result
 
+def check_proposal(program: lasapp.ProbabilisticProgram):
+    model = program.get_model()
+    guide = program.get_guide()
+    return check_ac(program, model, guide)
 
-def check_guide(program: lasapp.ProbabilisticProgram):
+def check_svi(program: lasapp.ProbabilisticProgram):
+    model = program.get_model()
+    guide = program.get_guide()
+    return check_ac(program, guide, model)
+
+# checks if P(x) > 0 => Q(x) > 0
+# or equivalently if Q(x) = 0 => P(x) = 0
+def check_ac(program: lasapp.ProbabilisticProgram, P: lasapp.Model, Q: lasapp.Model):
     violations = []
 
     random_variables = program.get_random_variables()
-    assumptions = {rv.node: SymblicExpression(rv) for rv in random_variables}
+    mask = {rv.node: SymblicExpression(rv) for rv in random_variables}
 
-    model = program.get_model()
-    model_rvs = [rv for rv in random_variables if is_descendant(model.node, rv.node)]
-    model_rvs_by_name = group_by_name(model_rvs)
+    P_rvs = [rv for rv in random_variables if is_descendant(P.node, rv.node) and not rv.is_observed]
+    P_rvs_by_name = group_by_name(P_rvs)
 
-    guide = program.get_guide()
-    guide_rvs = [rv for rv in random_variables if is_descendant(guide.node, rv.node)]
-    guide_rvs_by_name = group_by_name(guide_rvs)
+    Q_rvs = [rv for rv in random_variables if is_descendant(Q.node, rv.node) and not rv.is_observed]
+    Q_rvs_by_name = group_by_name(Q_rvs)
 
     # path_condition = {
-    #     **{rv: program.get_path_condition(rv.node, model.node, assumptions) for rv in model_rvs},
-    #     **{rv: program.get_path_condition(rv.node, guide.node, assumptions) for rv in guide_rvs}
+    #     **{rv: program.get_path_condition(rv.node, P.node, mask) for rv in Q_rvs},
+    #     **{rv: program.get_path_condition(rv.node, Q.node, mask) for rv in Q_rvs}
     # }
     # path_condition = {rv: parse_path_condition_str(s) for rv, s in path_condition.items()}
 
     # batched version
     path_condition = {
-        **get_path_conditions(program, model, model_rvs, assumptions),
-        **get_path_conditions(program, guide, guide_rvs, assumptions)
+        **get_path_conditions(program, P, P_rvs, mask),
+        **get_path_conditions(program, Q, Q_rvs, mask)
     }
 
     distribution_constraint = {
-        rv: get_distribution_constraint(rv) for rv in random_variables
+        rv: get_distribution_constraint(program, rv) for rv in random_variables
     }
 
-    # check if program paths of sample statements for rv with same name are disjoint
-    violations += check_disjointness("model", path_condition, model_rvs_by_name)
+    solver = z3.Solver()
+    impl = z3.Implies(
+        z3.And([z3.Implies(path_condition[rv],distribution_constraint[rv]) for rv in P_rvs if distribution_constraint[rv] is not None]),
+        z3.And([z3.Implies(path_condition[rv],distribution_constraint[rv]) for rv in Q_rvs if distribution_constraint[rv] is not None]),
+    )
+    solver.add(z3.Not(impl))
+    res = solver.check()
+    if res == z3.sat:
+        violations.append(GlobalAbsoluteContinuityViolation(P, Q, f"Counterexample: {solver.model()}"))
+    # (1) More detailed Warnings: (this is not part of the paper, see supplementary material)
 
     # check if program paths of sample statements for rv with same name are disjoint
-    violations += check_disjointness("guide", path_condition, guide_rvs_by_name)
+    violations += check_disjointness(P.name, path_condition, P_rvs_by_name)
 
+    # check if program paths of sample statements for rv with same name are disjoint
+    violations += check_disjointness(Q.name, path_condition, Q_rvs_by_name)
         
-    # check if rv X=v is sampled in model implies X=v sample is possible in guide
-    for name, model_stmts in  model_rvs_by_name.items():
-        if name not in guide_rvs_by_name:
-            # there is no sample statement for rv `name` in guide.
-            violations.append(AbsoluteContinuityViolation(name, "No sample statement in guide."))
+    # check if rv X=v is sampled in model implies X=v sample is possible in Q
+    for name, P_stmts in  P_rvs_by_name.items():
+        if name not in Q_rvs_by_name:
+            # there is no sample statement for rv `name` in Q.
+            violations.append(AbsoluteContinuityViolation(P, Q, name, f"No sample statement in {Q.name}"))
             continue
-        guide_stmts = guide_rvs_by_name[name]
+        Q_stmts = Q_rvs_by_name[name]
 
-        types = [(rv, path_condition[rv], get_type(rv)) for rv in model_stmts] + [(rv, path_condition[rv], get_type(rv)) for rv in guide_stmts]
-        type_mismatch = False
-        for t1, t2 in combinations(types, 2):
-            if t1[2] != t2[2]:
-                # types do not match Continuous vs Discrete vs None
-                violations.append(SupportTypeMismatch(name, t1[0], t1[1], t2[0], t2[1]))
-                type_mismatch = True
-        if type_mismatch:
-            continue
+        if any(distribution_constraint[stmt] is None for stmt in P_stmts + Q_stmts):
+            continue # handled in (1)
 
         # add variable support constraint to path conditions
-        model_pcs = [z3.And(path_condition[stmt], distribution_constraint[stmt]) for stmt in model_stmts]
-        guide_pcs = [z3.And(path_condition[stmt], distribution_constraint[stmt]) for stmt in guide_stmts]
+        P_pcs = [z3.And(path_condition[stmt], distribution_constraint[stmt]) for stmt in P_stmts]
+        Q_pcs = [z3.And(path_condition[stmt], distribution_constraint[stmt]) for stmt in Q_stmts]
 
         solver = z3.Solver()
-        impl = z3.Implies(z3.Or(model_pcs), z3.Or(guide_pcs))
+        impl = z3.Implies(z3.Or(P_pcs), z3.Or(Q_pcs))
         solver.add(z3.Not(impl))
         res = solver.check()
         # if res == z3.unsat then we proved implication
         if res == z3.sat:
-            # there is a path in the model such that rv X=v is sampled (with constraints),
-            # but for the same path X=v cannot be sampled in guide (with the constraints).
+            # there is a path in P such that rv X=v is sampled (with constraints),
+            # but for the same path X=v cannot be sampled in Q (with the constraints).
             # i.e. there are rvs with values X_i = v_i such that (X_1=v_1, ..., X_n=v_n, X=v) is a possible
-            # execution trace for the model, but not for the guide, p_guide((X_1=v_1, ..., X_n=v_n, X=v)) = 0.
-            violations.append(AbsoluteContinuityViolation(name, f"Counterexample: {solver.model()}"))
+            # execution trace for P, but not for Q, p_Q((X_1=v_1, ..., X_n=v_n, X=v)) = 0.
+            violations.append(AbsoluteContinuityViolation(P, Q, name, f"Counterexample: {solver.model()}"))
         elif res == z3.unknown:
-            print(f"Warning. Could not prove or disprove {impl} for {name}")
+            print(f"Warning: Could not prove or disprove {impl} for {name}")
 
-    # More detailed Warnings:
-
-    # if model sample statement and guide statement can be in same path,
+    # if model sample statement and Q statement can be in same path,
     # check if their distributions satisfy absolute continuity
-    for name, model_stmts in  model_rvs_by_name.items():
-        if name not in guide_rvs_by_name:
+    for name, P_stmts in  P_rvs_by_name.items():
+        if name not in Q_rvs_by_name:
             continue
-        guide_rv_pcs = guide_rvs_by_name[name]
+        Q_rv_pcs = Q_rvs_by_name[name]
 
-        for (model_rv) in model_stmts:
-            for (guide_rv) in guide_rv_pcs:
-                model_pc = path_condition[model_rv]
-                guide_pc = path_condition[guide_rv]
+        for (P_rv) in P_stmts:
+            for (Q_rv) in Q_rv_pcs:
+                P_pc = path_condition[P_rv]
+                Q_pc = path_condition[Q_rv]
 
                 solver = z3.Solver()
-                intersect = z3.And(model_pc, guide_pc)
+                intersect = z3.And(P_pc, Q_pc)
                 solver.add(intersect)
                 res = solver.check()
                 # check if both paths can be satisfied
                 if res == z3.sat:
                     # there is an execution trace X_i = v_i, such that
-                    # rv X is sampled in both guide and model.
+                    # rv X is sampled in both Q and P.
                     # -> check if distribution supports satisfy absolute continuity
 
                     # compare distribution types first
-                    model_rv_type = get_type(model_rv)
-                    guide_rv_type = get_type(guide_rv)
-                    if model_rv_type is not None and guide_rv_type is not None:
-                        if model_rv_type == guide_rv_type:
-                            model_rv_support = get_support_interval(model_rv)
-                            guide_rv_support = get_support_interval(guide_rv)
-                            if model_rv_support is None or guide_rv_support is None:
-                                continue
-                            if not model_rv_support.is_subset(guide_rv_support):
-                                # model support interval is not subset of guide support interval
-                                violations.append(SupportIntervalMismatch(name, model_rv, model_pc, guide_rv, guide_pc))
+                    P_rv_type = get_type(P_rv)
+                    Q_rv_type = get_type(Q_rv)
+                    P_rv_constraint = get_support_constraint(P_rv)
+                    Q_rv_constraint = get_support_constraint(Q_rv)
+
+                    if P_rv_type == Q_rv_type and isinstance(P_rv_constraint, dists.IntervalConstraint) == isinstance(Q_rv_constraint, dists.IntervalConstraint):
+                        P_rv_support = get_support_interval(program, dict(), P_rv)
+                        Q_rv_support = get_support_interval(program, dict(), Q_rv)
+                        if P_rv_support is None or Q_rv_support is None:
+                            continue
+                        if not P_rv_support.is_subset_of(Q_rv_support):
+                            # model support interval is not subset of Q support interval
+                            violations.append(SupportIntervalMismatch(P, Q, name, P_rv, P_pc, P_rv_support, Q_rv, Q_pc, Q_rv_support))
+
+                    elif P_rv_type != Q_rv_type or P_rv_constraint != Q_rv_constraint:
+                        violations.append(SupportTypeMismatch(P, Q, name, P_rv, P_pc, Q_rv, Q_pc))
 
     return violations
-
-#%%

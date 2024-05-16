@@ -233,7 +233,7 @@ function visit(visitor::SymbolicEvaluator, node::SyntaxNode)
         end
         return res
 
-    elseif kind(node) == K"call"
+    elseif kind(node) == K"call" || kind(node) == K"dotcall"
         # map function call to symbolic operation
         if JuliaSyntax.is_prefix_op_call(node)
             # !X -> Operation("!", X)

@@ -5,7 +5,7 @@ from .jsonrpc_client import get_jsonrpc_client
 
 
 class ProbabilisticProgram:
-    def __init__(self, file_name: str, ppl=None) -> None:
+    def __init__(self, file_name: str, n_unroll_loops: int = 0, ppl=None) -> None:
         _, ext = os.path.splitext(file_name)
         if ext == '.py':
             socket_name = "./.pipe/python_rpc_socket"
@@ -36,7 +36,7 @@ class ProbabilisticProgram:
         self.ppl = ppl
 
 
-        response = self.client.build_ast(file_name=file_name, ppl=ppl)
+        response = self.client.build_ast(file_name=file_name, ppl=ppl, n_unroll_loops=n_unroll_loops)
         tree_id = response["result"]
         self.tree_id = tree_id
 
@@ -45,17 +45,17 @@ class ProbabilisticProgram:
 
     def get_model(self) -> Model:
         return self.client.get_model(
-            file_name=self.file_name, ppl=self.ppl, object_hook=Model.from_dict
+            tree_id=self.tree_id, object_hook=Model.from_dict
         )
     
     def get_guide(self) -> Model:
         return self.client.get_guide(
-            file_name=self.file_name, ppl=self.ppl, object_hook=Model.from_dict
+            tree_id=self.tree_id, object_hook=Model.from_dict
         )
 
     def get_random_variables(self) -> list[RandomVariable]:
         return self.client.get_random_variables(
-            file_name=self.file_name, ppl=self.ppl, object_hook=RandomVariable.from_dict
+            tree_id=self.tree_id, object_hook=RandomVariable.from_dict
         )
         
     def get_data_dependencies(self, node: SyntaxNode) -> list[SyntaxNode]:
@@ -63,17 +63,17 @@ class ProbabilisticProgram:
             node=node, tree_id=self.tree_id, object_hook=SyntaxNode.from_dict
         )
 
-    def get_control_parents(self, node: SyntaxNode) -> list[ControlNode]:
-        return self.client.get_control_parents(
-            node=node, tree_id=self.tree_id, object_hook=ControlNode.from_dict
+    def get_control_dependencies(self, node: SyntaxNode) -> list[ControlDependency]:
+        return self.client.get_control_dependencies(
+            node=node, tree_id=self.tree_id, object_hook=ControlDependency.from_dict
         )
     
-    def estimate_value_range(self, expr: SyntaxNode, assumptions: dict[RandomVariable,Interval]) -> Interval: 
-        assumptions = list(assumptions.items())
+    def estimate_value_range(self, expr: SyntaxNode, mask: dict[SyntaxNode,Interval]) -> Interval: 
+        mask = list(mask.items())
         return self.client.estimate_value_range(
             expr=expr,
             tree_id=self.tree_id,
-            assumptions=assumptions,
+            mask=mask,
             object_hook=Interval.from_dict
         )
     
@@ -84,23 +84,23 @@ class ProbabilisticProgram:
             object_hook=CallGraphNode.from_dict
         )
     
-    def get_path_condition(self, node: SyntaxNode, root: SyntaxNode, assumptions: dict[tuple[SyntaxNode, SymbolicExpression]]) -> SymbolicExpression:
-        assumptions = list(assumptions.items())
+    def get_path_condition(self, node: SyntaxNode, root: SyntaxNode, mask: dict[SyntaxNode, SymbolicExpression]) -> SymbolicExpression:
+        mask = list(mask.items())
         return self.client.get_path_conditions(
             tree_id=self.tree_id,
             root=root,
             nodes=[node],
-            assumptions=assumptions,
+            mask=mask,
             object_hook=SymbolicExpression.from_dict
         )[0]
     
     # batched version of get_path_condition
-    def get_path_conditions(self, nodes: list[SyntaxNode], root: SyntaxNode, assumptions: dict[SyntaxNode, SymbolicExpression]) -> list[SymbolicExpression]:
-        assumptions = list(assumptions.items())
+    def get_path_conditions(self, nodes: list[SyntaxNode], root: SyntaxNode, mask: dict[SyntaxNode, SymbolicExpression]) -> list[SymbolicExpression]:
+        mask = list(mask.items())
         return self.client.get_path_conditions(
             tree_id=self.tree_id,
             root=root,
             nodes=nodes,
-            assumptions=assumptions,
+            mask=mask,
             object_hook=SymbolicExpression.from_dict
         )

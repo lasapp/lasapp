@@ -15,7 +15,7 @@ def pedestrian():
         distance = distance + step.abs()
         position = position + step
         t = t + 1
-    pyro.sample("obs", dist.Normal(1.1, 0.1), obs=distance)
+    pyro.sample("obs", dist.Normal(distance, 0.1), obs=1.1)
     return start
 
 

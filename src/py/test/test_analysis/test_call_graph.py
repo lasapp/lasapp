@@ -4,7 +4,7 @@ sys.path.insert(0, 'src/py') # hack for now
 
 import ast
 from ast_utils.utils import *
-from ast_utils.position_parent import *
+from ast_utils.preprocess import *
 from ast_utils.scoped_tree import get_scoped_tree
 
 from analysis.call_graph import *
@@ -25,7 +25,7 @@ def D():
 
         parsed_ast = ast.parse(source_code)
         line_offsets = get_line_offsets_for_str(source_code)
-        syntax_tree = add_position_and_parent(parsed_ast, source_code, line_offsets)
+        syntax_tree = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0, uniquify_calls=False)
         scoped_tree = get_scoped_tree(syntax_tree)
 
         A = scoped_tree.root_node.body[0]
@@ -71,7 +71,7 @@ def C():
 
         parsed_ast = ast.parse(source_code)
         line_offsets = get_line_offsets_for_str(source_code)
-        syntax_tree = add_position_and_parent(parsed_ast, source_code, line_offsets)
+        syntax_tree = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0, uniquify_calls=False)
         scoped_tree = get_scoped_tree(syntax_tree)
 
         A = scoped_tree.root_node.body[0]

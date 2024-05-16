@@ -1,11 +1,13 @@
 
-
 @testset "Turing" begin
     
     source_code = "@model function func() end"
-    node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    @test is_model(Turing(), node)
-    @test get_model_name(Turing(), node) == :func
+    st = get_syntax_tree_for_str(source_code)
+    preprocess_syntaxtree!(Turing(), st)
+    node = st.root_node
+    func = node[1]
+    @test is_model(Turing(), func)
+    @test get_model_name(Turing(), func) == :func
 
 
     source_code = "
@@ -17,17 +19,21 @@
         e[i] ~ Bernoulli(0.5)
     end
     "
-    node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    func_body = node[2,2]
-    @test is_model(Turing(), node)
+    st = get_syntax_tree_for_str(source_code)
+    preprocess_syntaxtree!(Turing(), st)
+    node = st.root_node
+    
+    func = node[1]
+    @test is_model(Turing(), func)
+
+    func_body = func[2,2]
 
     x_def = func_body[1]
     y_def = func_body[2]
     z_def = func_body[4]
     e_def = func_body[5]
 
-
-    @test get_random_variable_node(Turing(), VariableDefinition(x_def)) == x_def[1]
+    
     dist_node = get_distribution_node(Turing(), VariableDefinition(x_def))
     @test sourcetext(dist_node) == "Normal(0., 1.)"
     dist_name, dist_params = get_distribution(Turing(), dist_node)
@@ -47,8 +53,11 @@
         x ~ Uniform()
     end
     """
-    node = JuliaSyntax.parseall(SyntaxNode, source_code)[1]
-    func_body = node[2,2]
+    st = get_syntax_tree_for_str(source_code)
+    preprocess_syntaxtree!(Turing(), st)
+    node = st.root_node
+    
+    func_body = node[1,2,2]
     x_def = func_body[1]
     dist_node = get_distribution_node(Turing(), VariableDefinition(x_def))
     @test_throws ErrorException get_distribution(Turing(), dist_node)

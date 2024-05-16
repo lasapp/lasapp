@@ -4,7 +4,7 @@ sys.path.insert(0, 'src/py') # hack for now
 
 import ast
 from ast_utils.utils import *
-from ast_utils.position_parent import *
+from ast_utils.preprocess import *
 from ast_utils.node_finder import NodeFinder
 
 class TestUtils(unittest.TestCase):
@@ -49,7 +49,7 @@ else:
         """
         parsed_ast = ast.parse(source_code)
         line_offsets = get_line_offsets_for_str(source_code)
-        syntax_tree = add_position_and_parent(parsed_ast, source_code, line_offsets)
+        syntax_tree = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0)
 
         node = syntax_tree.root_node.body[0]
 
@@ -96,7 +96,7 @@ else:
 # """
 #         parsed_ast = ast.parse(source_code)
 #         line_offsets = get_line_offsets_for_str(source_code)
-#         _ = add_position_and_parent(parsed_ast, source_code, line_offsets)
+#         _ = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0)
 
 #         def nodefinder_map(x):
 #             print(ast.dump(x))

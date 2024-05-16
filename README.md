@@ -1,8 +1,8 @@
-<img src="lasapp_logo.png">
+<img width=600px, src="lasapp_logo.png">
 
-# Language-Agnostic Static Analysis for Probabilistic Programs
+# Language-Agnostic Static Analysis of Probabilistic Programs
 
-Replication package for OOSPLA 2024 submission with the same name.
+Replication package for submission with the same name.
 
 The full implementation of the four language-agnosic analyses can be found in `src/static/analysis`.
 
@@ -71,137 +71,90 @@ python3 src/static/test/all.py
 ```
 Run main file:
 ```
-python3 experiments/main.py -h
-usage: main.py [-h] [-a A] program_name ppl
+python3 main.py -h
+usage: main.py [-h] [-a A] [-v] filename
 
 positional arguments:
-  program_name  motivating | linear_model | slicing | pedestrian | constraint | guide
-  ppl           turing | gen | pyro | pymc | beanmachine
+  filename    path to probabilistic program
 
 options:
-  -h, --help    show this help message and exit
-  -a A          graph | hmc | constraint | guide
-  -v            if set source code of file will be printed
+  -h, --help  show this help message and exit
+  -a A        graph | hmc | constraint | guide-proposal | guide-svi
+  -v          if set source code of file will be printed
 ```
 
-Omitting the `-a` argument will analyse the program as in the reference paper.
-
-But you can use all presented analyses:
+You can use all static analyses:
 - `-a=graph` model graph extraction
 - `-a=hmc` HMC assumption checker
 - `-a=constraint` parameter constraint verification
-- `-a=guide` model-guide validation
+- `-a=guide-proposal` model-guide validation (model >> guide)
+- `-a=guide-svi` model-guide validation (guide >> model)
 
-All example programs that are analysed can be found at `experiments/examples`.
-
-The `guide` analysis is only available for the `guide` program in `gen` and `pyro`.
-
-The `pedestrian` model is not available in `pymc`.
-
+Example programs can be found at `experiments/examples`.
 ```
 # stop language servers
 ./scripts/stop_servers.sh
 ```
 
-### Replication of Paper
-Start the language servers and verify that they running.
+## Replication of Paper
+Start the language servers and verify that they are running.
+```
+# start language servers if not started already
+./scripts/start_servers.sh
+```
+### Evaluation
+
+Statistical Dependency Analysis (Model Graph) and Parameter Constraint Analysis
+```
+python3 experiments/evaluate_graph_and_constraints.py
+```
+
+HMC Assumption Analysis
+```
+python3 experiments/evaluate_hmc.py
+```
+
+Model-Guide Validation Analysis
+```
+python3 experiments/evaluate_guide.py
+```
+
+With the model graph analysis we have identified a bug in <evaluation/turing/statistical_rethinking_2/chapter_14_6.jl>.
+
+### Some additional examples
 
 #### Motivating example (Figure 3): Catching discrete variables.
 ```
-python3 experiments/main.py motivating turing
-python3 experiments/main.py motivating beanmachine
-python3 experiments/main.py motivating pyro
+python3 main.py experiments/examples/motivating_turing.jl -a hmc
+python3 main.py experiments/examples/motivating_beanmachine.py -a hmc
+python3 main.py experiments/examples/motivating_pyro.py -a hmc
 ```
 Also available for `gen`, and `pymc`.
 
 #### Model graph extraction (Figure 6):
 ```
-python3 experiments/main.py slicing turing
+python3 main.py experiments/examples/pedestrian_turing.jl -a graph
 ```
 Check out the plot by running on the host machine:
 ```
 docker cp lasapp:/LASAPP/tmp/model.gv.pdf . && open model.gv.pdf
 ```
-Also available for `gen`, `pyro`, `pymc`, and `beanmachine`.
+Also available for `gen`, `pyro`.
 
-#### HMC Assumption Checking for Pedestrian Model (Figure 7):
+#### HMC Assumption Checking for Pedestrian Model:
 ```
-python3 experiments/main.py pedestrian pyro
+python3 main.py experiments/examples/pedestrian_pyro.py -a hmc
 ```
 Also available for `gen`, `turing`, and `beanmachine`.
 
-#### Parameter Constraint Verification (Figure 8):
+#### Parameter Constraint Verification (Figure 7):
 ```
-python3 experiments/main.py linear_model pymc
-python3 experiments/main.py constraint gen
+python3 main.py experiments/examples/constraint_gen.jl -a constraint
 ```
 Also available for `turing`, `gen`, `pyro`, `pymc`, and `beanmachine`.
 
-#### Model-Guide Validation (Figure 9):
-
+#### Model-Guide Validation:
 ```
-python3 experiments/main.py guide pyro
+python3 main.py experiments/examples/guide_pyro.py -a guide-proposal
 ```
 Also available for `gen`.
-
-## Writing Analysable Programs
-
-In this prototype we provide initial implementations of the language servers.
-
-Therefore, we rely on a few assumptions and the analysis may crash for some programs.
-
-Take a look at `experiments/examples`  and `examples/` for some reference programs.
-
-Generally, the analyses are most robust for programs written in a "Static Single Assigment" like fashion.
-
-We list some of the assumptions of the language servers / program analyses:
-- Multiple files not supported.
-- Sample statements should be assigned to program variable and not used directly:
-  - ok:
-  ```
-  m = pyro.sample("m", dists.Normal(0.,1.))
-  x = pyro.sample("x", dists.Normal(mu,1.))
-  ```
-  - not ok:
-  ```
-  x = pyro.sample(pyro.sample("m", dists.Normal(0.,1.)), dists.Normal(mu,1.))
-  ```
-  Will be improved in the future.
-- The address in sample statements should be consistent.
-  - `:x => i` or `f"x_{i}"` are supported but cannot be matched to `:x => j` or `f"x_{j}"`
-- Julia:
-  - No struct, let, macro, do.
-- Turing:
-  - Model specified by `@model function model(...)` or `@model function <name>(...)`, where `model = <name>` is a top-level assignment.
-- Gen:
-  - Model specified by `@gen function model(...)` or `@gen function <name>(...)`, where `model = <name>` is a top-level assignment.
-  - Observations are defined at the top-level by `observations = choicemap(address => value)` and/or `observations[address] = value`
-- Pyro:
-  - Model specified by `def model(...)` or `def <name>(...)`, where `model = <name>` is a top-level assignment.
-- PyMC:
-  - Model specified by `with pm.Model() as model` or `with pm.Model() as <name>`, where `model = <name>` is a top-level assignment.
-- BeanMachine
-  - All declared random variables belong to the model.
-  - Observations are defined at the top-level by `observations = {address: value}` and/or `observations[address] = value`
-- Distributions:
-  - All parameters are provided. No default parameters.
-  - PyMC / torch.distributions: `logits` parameters not supported
-- Data and Control Flow:
-  - no structs / classes
-  - No break / continue control flow.
-  - No try / catch / finally blocks.
-  - Functions are pure: no side effects / same output for same arguments (no closures), no outside dependence
-  - works best with static single assignments
-- Symbolic Evaluation:
-  - no loops
-  - no arrays
-  - supports: `+, -, *, /, ^, &, |, !, ==, !=, >, >=, <, <=`
-- Interval Arithmetic:
-  - no loops
-  - expression for which interval should be calculated can be computed by following simple assignments (no complex control flow)
-  - supports:  `+, *, -, /, exp, log, sqrt, ^{float}, min, max, ifelse (pytensor)`
-  - all elements of array are estimated with single interval
-- Paramter Constraint Verification:
-  - univariate random variables with interval support
-- Model/Guide Validation:
-  - One model function and one guide definition.

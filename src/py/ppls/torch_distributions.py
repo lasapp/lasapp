@@ -4,7 +4,10 @@ def parse_torch_distribution(name, args, kwargs) -> tuple[str, dict[str, ast.AST
     dist_name = name
 
     # always use probs, logits not supported
-    if name in ("Bernoulli", "Categorical", "Geometric"):
+    if name in ("Bernoulli", "Geometric"):
+        dist_params = {'p':  kwargs.get('probs', args[0])}
+    elif name in ("Categorical", "OneHotCategorical"):
+        dist_name = 'Categorical'
         dist_params = {'p':  kwargs.get('probs', args[0])}
     elif name == "Beta":
         dist_params = {'alpha': kwargs.get('concentration1', args[0]), 'beta': kwargs.get('concentration0', args[1])}
