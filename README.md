@@ -119,7 +119,7 @@ Model-Guide Validation Analysis
 python3 experiments/evaluate_guide.py
 ```
 
-With the model graph analysis we have identified a bug in <evaluation/turing/statistical_rethinking_2/chapter_14_6.jl>.
+With the model graph analysis we have identified a bug in <a href="evaluation/turing/statistical_rethinking_2/chapter_14_6.jl">chapter_14_6.jl</a>.
 
 ### Some additional examples
 
