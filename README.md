@@ -80,7 +80,8 @@ positional arguments:
 options:
   -h, --help  show this help message and exit
   -a A        graph | hmc | constraint | guide-proposal | guide-svi
-  -v          if set source code of file will be printed
+  --v         if set, source code of file will be printed
+  --view      Only applicable for -a graph. If set, model graph will be plotted and displayed. Otherwise, only saved to disk.
 ```
 
 You can use all static analyses:

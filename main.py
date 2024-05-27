@@ -12,8 +12,9 @@ from analysis.utils import *
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="path to probabilistic program")
-    parser.add_argument("-a", help="graph | hmc | constraint | guide-proposal | guide-svi", default="graph") 
-    parser.add_argument("-v", help="if set source code of file will be printed", action='store_true')
+    parser.add_argument("-a", help="graph | hmc | constraint | guide-proposal | guide-svi", default="graph")
+    parser.add_argument("--v", help="if set, source code of file will be printed", action='store_true')
+    parser.add_argument("--view", help="Only applicable for -a graph. If set, model graph will be plotted and displayed. Otherwise, only saved to disk.", action='store_true')
     args = parser.parse_args()
 
     filename = args.filename
@@ -46,7 +47,7 @@ if __name__ == '__main__':
         merge_nodes_by_name(model_graph)
         for x,y in model_graph.edges:
             print(x.name, "->", y.name)
-        plot_model_graph(model_graph, view=True)
+        plot_model_graph(model_graph, view=args.view)
 
     elif analysis == "constraint":
         violations = validate_distribution_arg_constraints(program)

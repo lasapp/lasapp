@@ -12,7 +12,7 @@ def get_utf8_substr(s, start, end):
 def print_source_highlighted(file_content, highlights):
     highlights = list(set(highlights))
     highlights.sort(key=lambda x: x[0])
-    print(highlights)
+    # print(highlights)
     unique_highlights = []
     for highlight in highlights:
         # if highlight is not contained in other highlight
