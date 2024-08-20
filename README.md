@@ -2,7 +2,7 @@
 
 # Language-Agnostic Static Analysis of Probabilistic Programs
 
-Replication package for submission with the same name.
+Replication package for ASE2024 paper with the same name.
 
 The full implementation of the four language-agnosic analyses can be found in `src/static/analysis`.
 
@@ -14,14 +14,24 @@ The classical analysis backbone is located in `src/jl/analysis` and `src/py/anal
 
 ## Setup
 
-Installation with Docker is recommended.
+No special hardware is needed for installation.
+
+Recommendations:
+- Hardware: >= 3.5 GHZ dual core CPU, >= 8 GB RAM, and >= 10 GB storage
+- OS: unix-based operating system
+- Installation with Docker
 
 ### Docker Installation
 
 Install [docker](https://www.docker.com).
 
+Build the lasapp image:
 ```
 docker build -t lasapp .
+```
+
+If the build was successful, run the docker image:
+```
 docker run -it --name lasapp --rm lasapp
 ```
 
@@ -41,10 +51,14 @@ julia --project=src/jl -e "using Pkg; Pkg.instantiate();"
 ```
 
 ### Test Installation
+
+To test the installation, first we run test scripts for both the Julia and Python language server.
 ```
 ./scripts/test_servers.sh
 ```
+(If for some reason a segmentation error is reported run the tests individually: `julia --project=src/jl src/jl/test/all.jl` `python3 src/py/test/all.py`)
 
+If all tests pass, you can start the language servers:
 ```
 # start language servers
 ./scripts/start_servers.sh
@@ -53,15 +67,21 @@ julia --project=src/jl -e "using Pkg; Pkg.instantiate();"
 ```
 # verify that language servers are running
 tmux ls
+```
+You should see two instances `ls-jl` and `ls-py`.
+
+If you like, you can attach to the servers with one of the following commands and detach with `Ctrl+b d`.
+However, this is not required.
+```
 tmux attach -t ls-jl
 tmux attach -t ls-py
 ```
-(detach with `Ctrl+b d`)
 
+Run the test file.
 ```
 python3 src/static/test/all.py
 ```
-
+If there are no errors (result is OK), installation was successful.
 
 ## Usage
 
@@ -92,12 +112,16 @@ You can use all static analyses:
 - `-a=guide-svi` model-guide validation (guide >> model)
 
 Example programs can be found at `experiments/examples`.
+
+Usage examples can be found below.
+
+After you are finished, you may stop the language servers.
 ```
 # stop language servers
 ./scripts/stop_servers.sh
 ```
 
-## Replication of Paper
+## Reproducing the Results of the Paper (Section 5 / Table 2)
 Start the language servers and verify that they are running.
 ```
 # start language servers if not started already
@@ -107,20 +131,33 @@ Start the language servers and verify that they are running.
 
 Statistical Dependency Analysis (Model Graph) and Parameter Constraint Analysis
 ```
-python3 experiments/evaluate_graph_and_constraints.py
+python3 experiments/evaluate_graph_and_constraints.py -ppl turing
 ```
+This will perfrom the Statistical Dependency Analysis and the Parameter Constraint Verifier for 117 Turing programs.  
+For each program, the result will be printed: Everything is ok = correct, Warnings produced = unsupported.  
+At the end, the summary counts are reported.
+
+```
+python3 experiments/evaluate_graph_and_constraints.py -ppl pymc
+```
+Performs the same experiment for 97 PyMC programs.
 
 HMC Assumption Analysis
 ```
 python3 experiments/evaluate_hmc.py
 ```
+Performs the HMC Assumption Checker for 8 Gen programs.  
+For each program, the result will be printed: Everything is ok = false negative, Warnings produced = true positive.  
+
 
 Model-Guide Validation Analysis
 ```
 python3 experiments/evaluate_guide.py
 ```
+Performs the Model-Guide Validation Validator for 8 Pyro programs.  
+For each program, the result will be printed: Everything is ok = true negative, Warnings produced = true positive.  
 
-With the model graph analysis we have identified a bug in <a href="evaluation/turing/statistical_rethinking_2/chapter_14_6.jl">chapter_14_6.jl</a>.
+Note: With the model graph analysis we have identified a bug in <a href="evaluation/turing/statistical_rethinking_2/chapter_14_6.jl">chapter_14_6.jl</a>.
 
 ### Some additional examples
 
