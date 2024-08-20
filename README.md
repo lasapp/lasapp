@@ -43,6 +43,7 @@ Requirements:
 - Julia 1.9.2
 - tmux
 - [graphviz](https://www.graphviz.org)
+- [Z3](https://github.com/Z3Prover/z3)
   
 Install packages:
 ```
