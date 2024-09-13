@@ -4,13 +4,62 @@
 
 Replication package for ASE2024 paper with the same name.
 
-The full implementation of the four language-agnosic analyses can be found in `src/static/analysis`.
+Overview:
+```
+.  
+├── evaluation/                                     # Probabilistic Program Benchmark Dataset
+│     ├── gen/                                      # 8 Gen.jl programs with discontinuous density
+│     ├── pymc/                                     # 97 PyMC programs sourced from [pymc-resources]
+│     ├── pyro/                                     # 8 Pyro programs with model-guide pairs sourced from [wonyeol]
+│     └── turing/                                   # 117 Turing.jl programs sourced from [SR2TuringPluto.jl] and [TuringTutorials]
+│
+├── experiments/                                    # Scripts to reproduce results of paper
+│     ├── examples/                                 # Some probabilistic programs featured as examples in the paper tranlsated to several PPLs
+│     ├── evaluate_graph_and_constraints.py         # Script to reproduce Dependency Analysis and Constraint Verifier experiments for PyMC and Turing
+│     ├── evaluate_guide.py                         # Script to reproduce Model-Guide Validator experiment for Pyro
+│     └── evaluate_hmc.py                           # Script to reproduce HMC Assumption Checker for Gen
+│
+├── scripts/                                        # Scripts to start, stop, and test language servers
+│     ├── start_servers.sh                          # Start Python and Julia language server
+│     ├── stop_servers.sh                           # Stop Python and Julia language server
+│     └── test_servers.sh                           # Test Python and Julia language server
+│
+├── src/                                            # LASAPP source code
+│     ├── jl/                                       # Julia language server
+│     │     ├── analysis/                           # Julia classical analysis backend
+│     │     ├── ast/                                # AST utilities
+│     │     ├── ppls/                               # Julia PPL bindings
+│     │     │     ├── distributions.jl              # Distributions.jl distribution backend
+│     │     │     ├── gen.jl                        # Gen.jl bindings
+│     │     │     └── turing.jl                     # Turing.jl bindings
+│     │     └── test/                               # Unit tests
+│     └── py/                                       # Python language server
+│     │     ├── analysis/                           # Python classical analysis backend
+│     │     ├── ast_tuils/                          # AST utilities
+│     │     ├── ppls/                               # Python PPL bindings
+│     │     │     ├── beanmachine.py                # BeanMachine bindings
+│     │     │     ├── pymc.py                       # PyMC bindings
+│     │     │     ├── pyro.py                       # Pyro bindings
+│     │     │     └── torch_distributions.py        # PyTorch distributions backend
+│     │     └── test/                               # Unit tests
+│     └── static/                                   # Static analysis front-end
+│           ├── analysis/                           # Python classical analysis backend
+│           │     ├── constraint_verification.py    # Parameter Constraint Verifier (Section 4.4)
+│           │     ├── guide_validation.py           # Model-Guide Validator (Section 4.5)
+│           │     ├── hmc_assumption_checker.py     # HMC Assumptions Checker (Section 4.3)
+│           │     └── model_graph.py                # Statistical Dependency Analysis (Section 4.2)
+│           ├── lassap/                             # LASAPP framework front-end
+│           └── test/                               # Unit tests
+│ 
+├── Dockerfile                                      # File for building Docker image  
+└── main.py                                         # Script to apply any analysis to probabilstic program in file
+```
 
-The LASAPP front-end API is implemented in `src/static/lasapp`.
-
-The Julia language server can be found in `src/jl` and the Python language server can be found in `src/py`.
-
-The classical analysis backbone is located in `src/jl/analysis` and `src/py/analysis`.
+Data sources:
+- [[pymc-resources]](https://github.com/pymc-devs/pymc-resources/tree/a5f993653e467da11e9fc4ec682e96d59b880102)
+- [[wonyeol]](https://github.com/wonyeol/static-analysis-for-support-match/tree/850fb58ec5ce2f5e82262c2a9bfc067b799297c1/tests/pyro_examples)
+- [[SR2TuringPluto.jl]](https://github.com/StatisticalRethinkingJulia/SR2TuringPluto.jl/tree/75072280947a45f030bd45a62710c558d60a2a80)
+- [[TuringTutorials]](https://github.com/TuringLang/TuringTutorials/tree/8515a567321adf1531974dd14eb29c00eea05648)
 
 ## Setup
 
@@ -25,7 +74,7 @@ Recommendations:
 
 Install [docker](https://www.docker.com).
 
-Build the lasapp image:
+Build the lasapp image (this may take several minutes):
 ```
 docker build -t lasapp .
 ```
