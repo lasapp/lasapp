@@ -35,7 +35,7 @@ Overview:
 │     │     └── test/                               # Unit tests
 │     └── py/                                       # Python language server
 │     │     ├── analysis/                           # Python classical analysis backend
-│     │     ├── ast_tuils/                          # AST utilities
+│     │     ├── ast_utils/                          # AST utilities
 │     │     ├── ppls/                               # Python PPL bindings
 │     │     │     ├── beanmachine.py                # BeanMachine bindings
 │     │     │     ├── pymc.py                       # PyMC bindings
