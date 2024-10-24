@@ -246,3 +246,15 @@ Also available for `turing`, `gen`, `pyro`, `pymc`, and `beanmachine`.
 python3 main.py experiments/examples/guide_pyro.py -a guide-proposal
 ```
 Also available for `gen`.
+
+
+## Citation
+```
+@inproceedings{boeck2024,
+  title={Language-Agnostic Static Analysis of Probabilistic Programs},
+  author={B{\"o}ck, Markus and Schr{\"o}der, Michael and Cito, J{\"u}rgen},
+  booktitle={Proceedings of the 39th IEEE/ACM International Conference on Automated Software Engineering},
+  pages={78--90},
+  year={2024}
+}
+```
