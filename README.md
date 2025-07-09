@@ -2,7 +2,7 @@
 
 # Language-Agnostic Static Analysis of Probabilistic Programs
 
-Replication package for ASE2024 paper with the same name.
+Replication package for [ASE2024 paper](https://dl.acm.org/doi/pdf/10.1145/3691620.3695031) with the same name.
 
 Overview:
 ```
@@ -77,6 +77,16 @@ Install [docker](https://www.docker.com).
 Build the lasapp image (this may take several minutes):
 ```
 docker build -t lasapp .
+```
+
+Alternatively, you can load the docker image provided at [Zenodo](https://doi.org/10.5281/zenodo.13347681) with
+```
+docker load < lasapp.tar.gz
+```
+which was saved with
+```
+docker commit lasapp lasapp
+docker save lasapp | gzip > lasapp.tar.gz
 ```
 
 If the build was successful, run the docker image:
@@ -249,6 +259,7 @@ Also available for `gen`.
 
 
 ## Citation
+[ASE2024 paper](https://dl.acm.org/doi/pdf/10.1145/3691620.3695031)
 ```
 @inproceedings{boeck2024,
   title={Language-Agnostic Static Analysis of Probabilistic Programs},
