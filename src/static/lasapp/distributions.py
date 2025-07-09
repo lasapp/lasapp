@@ -354,13 +354,6 @@ DISTRIBUTIONS = [
         dimensionality=DistributionDimensionality.Univariate
     ),
     DistributionProperties(
-        name='LKJCholesky',
-        param_constraints={'size': GreaterThan(1.), 'shape': GreaterThan(0.)},
-        support=Matrix(),
-        type=DistributionType.Continuous,
-        dimensionality=DistributionDimensionality.Multivariate
-    ),
-    DistributionProperties(
         name='NegativeBinomial',
         param_constraints={'r': GreaterThan(0.), 'p': Interval(0.,1.)},
         support=DiscreteInterval(0, float('inf')),
