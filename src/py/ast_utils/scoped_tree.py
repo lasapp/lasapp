@@ -88,7 +88,7 @@ class ScopedTree:
     def get_cfgnode_for_syntaxnode(self, node: ast.AST):
         for _, cfg in self.cfgs.items():
             for cfgnode in cfg.nodes:
-                if isinstance(cfgnode, (AssignNode, BranchNode, ReturnNode, ExprNode)) and is_descendant(cfgnode.syntaxnode, node):
+                if isinstance(cfgnode, (AssignNode, BranchNode, ReturnNode, ExprNode, LoopIterNode)) and is_descendant(cfgnode.syntaxnode, node):
                     return cfg, cfgnode
         raise Exception(f"No CFGNode found for syntaxnode {ast.dump(node)}")
     

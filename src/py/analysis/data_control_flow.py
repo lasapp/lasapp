@@ -115,6 +115,11 @@ def get_identifiers_read_in_syntaxnode(scoped_tree: ScopedTree, node: ast.AST):
         rhs_deps = set(NameFinder().visit(rhs))
         identifiers = lhs_deps | rhs_deps
     
+    elif isinstance(node, ast.For):
+        rhs = node.iter
+        rhs_deps = set(NameFinder().visit(rhs))
+        identifiers = rhs_deps
+        
     elif is_supported_expression(node):
         identifiers = set(NameFinder().visit(node))
 

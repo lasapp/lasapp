@@ -37,7 +37,7 @@ class LoopIterNode(CFGNode): pass
 
 def get_short_node_string(node: CFGNode):
     s = type(node).__name__
-    if isinstance(node, JoinNode) and isinstance(node.syntaxnode, ast.FunctionDef):
+    if isinstance(node, FuncJoinNode) and isinstance(node.syntaxnode, ast.FunctionDef):
         return f"{s}({node.syntaxnode.name})"
     if isinstance(node, (AssignNode, BranchNode, JoinNode, ReturnNode, FuncArgNode, ExprNode)):
         return f"{s}({ast.unparse(node.syntaxnode)})"
