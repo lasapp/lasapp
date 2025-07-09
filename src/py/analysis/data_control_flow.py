@@ -13,11 +13,11 @@ def get_cfgnode_target(cfgnode: CFGNode):
     elif isinstance(cfgnode, FuncArgNode):
         return cfgnode.syntaxnode
     elif isinstance(cfgnode, LoopIterNode):
-        target = cfgnode.syntaxnode.target
-        assert isinstance(target, ast.Name), f"Cannot get_assignnode_target for LoopIterNode {cfgnode}"
+        target = cfgnode.syntaxnode # is target expr of For(...)
+        assert isinstance(target, ast.Name), f"Cannot get_cfgnode_target for LoopIterNode {cfgnode}"
         return target
     else:
-        raise Exception(f"Cannot get_assignnode_target for {cfgnode}")
+        raise Exception(f"Cannot get_cfgnode_target for {cfgnode}")
 
 def peval_ints(node: ast.AST):
     if isinstance(node, ast.Constant) and isinstance(node.value, int):

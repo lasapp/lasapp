@@ -197,11 +197,12 @@ for i in range(10):
         line_offsets = get_line_offsets_for_str(source_code)
         syntax_tree = preprocess_syntaxtree(parsed_ast, source_code, line_offsets, 0)
         scoped_tree = get_scoped_tree(syntax_tree)
+        # print_cfg_dot(scoped_tree.cfgs[scoped_tree.root_node])
         
         for_node = scoped_tree.root_node.body[0]
         if_node = for_node.body[0]
         while_node = if_node.body[1]
-        j = while_node.body[0]
+        j = while_node.body[0] # j == 2
         
         control_parents = control_parents_for_node(scoped_tree, j)
         self.assertTrue(set(control_parents) == set([while_node, if_node, for_node]))

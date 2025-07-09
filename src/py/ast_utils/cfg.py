@@ -42,7 +42,8 @@ def get_short_node_string(node: CFGNode):
     if isinstance(node, (AssignNode, BranchNode, JoinNode, ReturnNode, FuncArgNode, ExprNode)):
         return f"{s}({ast.unparse(node.syntaxnode)})"
     if isinstance(node, LoopIterNode):
-        return f"{s}({ast.unparse(node.syntaxnode.target)} in {ast.unparse(node.syntaxnode.iter)})"
+        # node.syntaxnode is target expr of For(...)
+        return f"{s}({ast.unparse(node.syntaxnode)} in {ast.unparse(node.syntaxnode.parent.iter)})"
     else:
         return f"{s}()"
 
@@ -410,7 +411,7 @@ class CFGBuilder():
             branch_cfgnode.join_node = join_cfgnode
             join_cfgnode.branch_node = branch_cfgnode
 
-            loop_var_cfgnode = LoopIterNode(node_id, node)
+            loop_var_cfgnode = LoopIterNode(node_id, node.target)
 
             # TODO: check loop range
             nodes.update([branch_cfgnode, join_cfgnode, loop_var_cfgnode])
