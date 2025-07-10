@@ -19,23 +19,23 @@ RUN set -eux; \
 	; \
 	rm -rf /var/lib/apt/lists/*
 
-ENV JULIA_PATH /usr/local/julia
+ENV JULIA_PATH=/usr/local/julia
 
 # https://julialang.org/juliareleases.asc
 # Julia (Binary signing key) <buildbot@julialang.org>
-ENV JULIA_GPG 3673DF529D9049477F76B37566E3C7DC03D6E495
+ENV JULIA_GPG=3673DF529D9049477F76B37566E3C7DC03D6E495
 
 # https://julialang.org/downloads/
-ENV JULIA_VERSION 1.9.2
+ENV JULIA_VERSION=1.9.2
 
 # --JULIA-PYTHON--------------------------------------------------------------------------------------------
-ENV PATH $JULIA_PATH/bin:/usr/local/bin:$PATH
+ENV PATH=$JULIA_PATH/bin:/usr/local/bin:$PATH
 
 
 # --PYTHON--------------------------------------------------------------------------------------------------
 # http://bugs.python.org/issue19846
 # > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
-ENV LANG C.UTF-8
+ENV LANG=C.UTF-8
 
 # runtime dependencies
 RUN set -eux; \
@@ -47,8 +47,8 @@ RUN set -eux; \
 	; \
 	rm -rf /var/lib/apt/lists/*
 
-ENV PYTHON_GPG A035C8C19219BA821ECEA86B64E628F8D684696D
-ENV PYTHON_VERSION 3.10.12
+ENV PYTHON_GPG=A035C8C19219BA821ECEA86B64E628F8D684696D
+ENV PYTHON_VERSION=3.10.12
 
 RUN set -eux; \
 	\
@@ -158,12 +158,12 @@ RUN set -eux; \
 	done
 
 # if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
-ENV PYTHON_PIP_VERSION 23.0.1
+ENV PYTHON_PIP_VERSION=23.0.1
 # https://github.com/docker-library/python/issues/365
-ENV PYTHON_SETUPTOOLS_VERSION 65.5.1
+ENV PYTHON_SETUPTOOLS_VERSION=65.5.1
 # https://github.com/pypa/get-pip
-ENV PYTHON_GET_PIP_URL https://github.com/pypa/get-pip/raw/0d8570dc44796f4369b652222cf176b3db6ac70e/public/get-pip.py
-ENV PYTHON_GET_PIP_SHA256 96461deced5c2a487ddc65207ec5a9cffeca0d34e7af7ea1afc470ff0d746207
+ENV PYTHON_GET_PIP_URL=https://github.com/pypa/get-pip/raw/0d8570dc44796f4369b652222cf176b3db6ac70e/public/get-pip.py
+ENV PYTHON_GET_PIP_SHA256=96461deced5c2a487ddc65207ec5a9cffeca0d34e7af7ea1afc470ff0d746207
 
 RUN set -eux; \
 	\

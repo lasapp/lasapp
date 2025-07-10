@@ -78,21 +78,30 @@ Build the lasapp image (this may take several minutes):
 ```
 docker build -t lasapp .
 ```
-
-Alternatively, you can load the docker image provided at [Zenodo](https://doi.org/10.5281/zenodo.13347681) with
-```
-docker load < lasapp.tar.gz
-```
-which was saved with
-```
-docker commit lasapp lasapp
-docker save lasapp | gzip > lasapp.tar.gz
-```
-
 If the build was successful, run the docker image:
 ```
 docker run -it --name lasapp --rm lasapp
 ```
+
+Alternatively, you can load the docker image provided at [Zenodo](https://doi.org/10.5281/zenodo.13347681) with
+```
+docker load -i lasapp-amd64.tar
+docker load -i lasapp-arm64.tar
+```
+depending on your system, which was saved with (Docker version 28.3.0)
+```
+docker buildx build --platform linux/amd64 -t lasapp-amd64 .
+docker image save lasapp-amd64 > lasapp-amd64.tar
+docker buildx build --platform linux/arm64 -t lasapp-arm64 .
+docker image save lasapp-arm64 > lasapp-arm64.tar
+```
+Run those images with
+```
+docker run -it --name lasapp-amd64 --rm lasapp-amd64
+docker run -it --name lasapp-arm64 --rm lasapp-arm64
+```
+
+
 
 ### Manual Installation
 
